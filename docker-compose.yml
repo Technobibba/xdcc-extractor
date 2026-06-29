@@ -1,0 +1,18 @@
+services:
+
+  xdcc-extractor:
+
+    build: .
+
+    container_name: xdcc-extractor
+
+    restart: unless-stopped
+
+    env_file:
+      - config.env
+
+    volumes:
+
+      - /media/HDD3/XDCC:/downloads
+
+      - ./logs:/logs
