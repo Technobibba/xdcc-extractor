@@ -1,0 +1,20 @@
+##############################################
+# XDCC Worker Configuration
+##############################################
+
+[watch]
+
+# Ordner der überwacht wird
+directory="/downloads"
+
+# Sekunden bis ein Release vollständig ist
+stable_after=30
+
+
+[extract]
+
+# Archive nach erfolgreichem Entpacken löschen
+delete_archives=true
+
+# Fehlerhafte Archive behalten
+keep_failed=true
