@@ -1,4 +1,5 @@
 mod config;
+mod extractor;
 mod queue;
 
 use notify::{
@@ -156,10 +157,13 @@ fn process_next_job(queue: &mut JobQueue, delete_archives: bool, keep_failed: bo
 
     info!("Starte Job: {}", job.display());
 
-    info!("Extractor-Platzhalter aktiv");
-    info!("Würde später entpacken: {}", job.display());
-    info!("Konfiguration delete_archives={}", delete_archives);
-    info!("Konfiguration keep_failed={}", keep_failed);
-
-    info!("Job abgeschlossen: {}", job.display());
+    match extractor::process_release(&job, delete_archives, keep_failed) {
+        Ok(()) => {
+            info!("Job abgeschlossen: {}", job.display());
+        }
+        Err(err) => {
+            error!("Job fehlgeschlagen: {}", job.display());
+            error!("{:?}", err);
+        }
+    }
 }
