@@ -1,5 +1,6 @@
 mod config;
 mod extractor;
+mod history;
 mod queue;
 
 use notify::{
@@ -34,6 +35,8 @@ fn main() -> anyhow::Result<()> {
     let delete_archives = config.extract.delete_archives;
     let keep_failed = config.extract.keep_failed;
 
+    let history = history::History::new(&config.history.directory)?;
+
     info!("XDCC Extractor startet...");
     info!("{:#?}", config);
     info!("Überwache {}", watch_path);
@@ -43,6 +46,7 @@ fn main() -> anyhow::Result<()> {
     );
     info!("Archive nach Erfolg löschen: {}", delete_archives);
     info!("Fehlerhafte Archive behalten: {}", keep_failed);
+    info!("History-Ordner: {}", config.history.directory);
 
     let (tx, rx) = channel();
 
@@ -70,10 +74,11 @@ fn main() -> anyhow::Result<()> {
             &releases,
             &mut known_ready,
             &mut queue,
+            &history,
             stable_after_seconds,
         );
 
-        process_next_job(&mut queue, delete_archives, keep_failed);
+        process_next_job(&mut queue, &history, delete_archives, keep_failed);
     }
 }
 
@@ -133,10 +138,20 @@ fn check_ready_releases(
     releases: &[ReleaseCandidate],
     known_ready: &mut HashSet<PathBuf>,
     queue: &mut JobQueue,
+    history: &history::History,
     stable_after_seconds: u64,
 ) {
     for release in releases {
         if known_ready.contains(&release.path) {
+            continue;
+        }
+
+        if history.is_done(&release.path) {
+            info!(
+                "Release wurde bereits verarbeitet, überspringe: {}",
+                release.path.display()
+            );
+            known_ready.insert(release.path.clone());
             continue;
         }
 
@@ -163,7 +178,12 @@ fn check_ready_releases(
     }
 }
 
-fn process_next_job(queue: &mut JobQueue, delete_archives: bool, keep_failed: bool) {
+fn process_next_job(
+    queue: &mut JobQueue,
+    history: &history::History,
+    delete_archives: bool,
+    keep_failed: bool,
+) {
     if queue.is_empty() {
         return;
     }
@@ -179,6 +199,18 @@ fn process_next_job(queue: &mut JobQueue, delete_archives: bool, keep_failed: bo
     match extractor::process_release(&job, delete_archives, keep_failed) {
         Ok(()) => {
             info!("Job abgeschlossen: {}", job.display());
+
+            match history.mark_done(&job) {
+                Ok(()) => {
+                    info!(
+                        "History gespeichert: {}",
+                        history.marker_path(&job).display()
+                    );
+                }
+                Err(err) => {
+                    error!("Konnte History nicht speichern: {:?}", err);
+                }
+            }
         }
         Err(err) => {
             error!("Job fehlgeschlagen: {}", job.display());

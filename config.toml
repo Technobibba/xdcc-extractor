@@ -18,3 +18,8 @@ delete_archives=true
 
 # Fehlerhafte Archive behalten
 keep_failed=true
+
+[history]
+
+# Ordner für verarbeitete Releases
+directory="state/history"
