@@ -1,8 +1,9 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
 use regex::Regex;
 use std::{
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 use tracing::info;
 
@@ -17,7 +18,11 @@ pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: b
     let plan = create_extract_plan(release_dir)?;
 
     info!("Archiv-Start gefunden: {}", plan.archive.display());
-    info!("Extractor ist noch im Testmodus, es wird noch nichts entpackt.");
+
+    verify_archive(&plan.archive)?;
+
+    info!("Archivprüfung erfolgreich: {}", plan.archive.display());
+    info!("Es wird noch nichts entpackt.");
     info!("Konfiguration delete_archives={}", delete_archives);
     info!("Konfiguration keep_failed={}", keep_failed);
 
@@ -33,6 +38,30 @@ pub fn create_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
     })?;
 
     Ok(ExtractPlan { archive })
+}
+
+fn verify_archive(archive: &Path) -> Result<()> {
+    info!("Starte Archivprüfung mit 7z: {}", archive.display());
+
+    let output = Command::new("7z")
+        .arg("t")
+        .arg(archive)
+        .output()
+        .with_context(|| "Konnte 7z nicht starten. Ist p7zip-full installiert?")?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    bail!(
+        "Archivprüfung fehlgeschlagen: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+        archive.display(),
+        stdout,
+        stderr
+    );
 }
 
 fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
