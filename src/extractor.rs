@@ -1,15 +1,18 @@
 use anyhow::{Context, Result, bail};
 use regex::Regex;
 use std::{
+    ffi::OsString,
     fs,
     path::{Path, PathBuf},
     process::Command,
 };
-use tracing::info;
+use tracing::{info, warn};
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
 pub struct ExtractPlan {
     pub archive: PathBuf,
+    pub output_dir: PathBuf,
 }
 
 pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: bool) -> Result<()> {
@@ -18,11 +21,18 @@ pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: b
     let plan = create_extract_plan(release_dir)?;
 
     info!("Archiv-Start gefunden: {}", plan.archive.display());
+    info!("Zielordner für Entpackung: {}", plan.output_dir.display());
 
     verify_archive(&plan.archive)?;
-
     info!("Archivprüfung erfolgreich: {}", plan.archive.display());
-    info!("Es wird noch nichts entpackt.");
+
+    extract_archive(&plan)?;
+    info!("Entpackung abgeschlossen: {}", plan.output_dir.display());
+
+    validate_extraction(&plan.output_dir)?;
+    info!("Entpackung validiert: {}", plan.output_dir.display());
+
+    info!("Archive werden in dieser Version noch nicht gelöscht.");
     info!("Konfiguration delete_archives={}", delete_archives);
     info!("Konfiguration keep_failed={}", keep_failed);
 
@@ -37,7 +47,12 @@ pub fn create_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
         )
     })?;
 
-    Ok(ExtractPlan { archive })
+    let output_dir = release_dir.join("_extracted");
+
+    Ok(ExtractPlan {
+        archive,
+        output_dir,
+    })
 }
 
 fn verify_archive(archive: &Path) -> Result<()> {
@@ -62,6 +77,73 @@ fn verify_archive(archive: &Path) -> Result<()> {
         stdout,
         stderr
     );
+}
+
+fn extract_archive(plan: &ExtractPlan) -> Result<()> {
+    if plan.output_dir.exists() {
+        warn!(
+            "Zielordner existiert bereits und wird gelöscht: {}",
+            plan.output_dir.display()
+        );
+
+        fs::remove_dir_all(&plan.output_dir).with_context(|| {
+            format!(
+                "Konnte bestehenden Zielordner nicht löschen: {}",
+                plan.output_dir.display()
+            )
+        })?;
+    }
+
+    fs::create_dir_all(&plan.output_dir).with_context(|| {
+        format!(
+            "Konnte Zielordner nicht erstellen: {}",
+            plan.output_dir.display()
+        )
+    })?;
+
+    info!("Starte Entpackung mit 7z: {}", plan.archive.display());
+
+    let mut output_arg = OsString::from("-o");
+    output_arg.push(plan.output_dir.as_os_str());
+
+    let output = Command::new("7z")
+        .arg("x")
+        .arg(&plan.archive)
+        .arg(output_arg)
+        .arg("-y")
+        .output()
+        .with_context(|| "Konnte 7z nicht starten. Ist p7zip-full installiert?")?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    bail!(
+        "Entpackung fehlgeschlagen: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+        plan.archive.display(),
+        stdout,
+        stderr
+    );
+}
+
+fn validate_extraction(output_dir: &Path) -> Result<()> {
+    if !output_dir.exists() {
+        bail!("Zielordner existiert nach Entpackung nicht");
+    }
+
+    let has_files = WalkDir::new(output_dir)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .any(|entry| entry.path().is_file());
+
+    if !has_files {
+        bail!("Entpackung scheint leer zu sein: {}", output_dir.display());
+    }
+
+    Ok(())
 }
 
 fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
