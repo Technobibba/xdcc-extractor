@@ -10,7 +10,7 @@ use queue::JobQueue;
 
 use std::{
     collections::HashSet,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::mpsc::channel,
     time::{Duration, Instant},
 };
@@ -81,6 +81,11 @@ fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
     match event.kind {
         EventKind::Create(_) | EventKind::Modify(_) => {
             for path in event.paths {
+                if is_ignored_path(&path) {
+                    info!("Ignoriere internen Pfad: {}", path.display());
+                    continue;
+                }
+
                 if path.is_file() {
                     if let Some(release_dir) = detect_release_dir(&path) {
                         upsert_release(releases, release_dir);
@@ -90,6 +95,20 @@ fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
         }
         _ => {}
     }
+}
+
+fn is_ignored_path(path: &Path) -> bool {
+    path.components().any(|component| match component {
+        Component::Normal(name) => {
+            let name = name.to_string_lossy();
+
+            name == "_extracted"
+                || name == "_failed"
+                || name == "_processing"
+                || name == ".xdcc-worker"
+        }
+        _ => false,
+    })
 }
 
 fn detect_release_dir(file: &Path) -> Option<PathBuf> {
