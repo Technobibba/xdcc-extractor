@@ -47,6 +47,7 @@ fn main() -> anyhow::Result<()> {
     let stable_after_seconds = config.watch.stable_after;
 
     let delete_archives = config.extract.delete_archives;
+    let dry_run = config.extract.dry_run;
     let keep_failed = config.extract.keep_failed;
 
     let retry = RetrySettings {
@@ -64,6 +65,7 @@ fn main() -> anyhow::Result<()> {
         stable_after_seconds
     );
     info!("Archive nach Erfolg löschen: {}", delete_archives);
+    info!("Dry-Run aktiv: {}", dry_run);
     info!("Fehlerhafte Archive behalten: {}", keep_failed);
     info!("History-Ordner: {}", config.history.directory);
     info!("Retry base_delay={}s", retry.base_delay);
@@ -102,7 +104,7 @@ fn main() -> anyhow::Result<()> {
             retry,
         );
 
-        match process_next_job(&mut queue, &history, delete_archives, keep_failed) {
+        match process_next_job(&mut queue, &history, delete_archives, dry_run, keep_failed) {
             JobResult::Success | JobResult::NoJob => {}
             JobResult::Failed(path) => {
                 warn!(
@@ -327,6 +329,7 @@ fn process_next_job(
     queue: &mut JobQueue,
     history: &history::History,
     delete_archives: bool,
+    dry_run: bool,
     keep_failed: bool,
 ) -> JobResult {
     if queue.is_empty() {
@@ -341,7 +344,7 @@ fn process_next_job(
 
     info!("Starte Job: {}", job.display());
 
-    match extractor::process_release(&job, delete_archives, keep_failed) {
+    match extractor::process_release(&job, delete_archives, dry_run, keep_failed) {
         Ok(()) => {
             info!("Job abgeschlossen: {}", job.display());
 

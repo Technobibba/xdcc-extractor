@@ -8,6 +8,7 @@ stable_after=30
 
 [extract]
 delete_archives=true
+dry_run=true
 keep_failed=true
 
 [history]

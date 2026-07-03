@@ -19,6 +19,7 @@ pub struct WatchConfig {
 #[derive(Debug, Deserialize)]
 pub struct ExtractConfig {
     pub delete_archives: bool,
+    pub dry_run: bool,
     pub keep_failed: bool,
 }
 

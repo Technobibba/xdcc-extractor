@@ -17,7 +17,12 @@ pub struct ExtractPlan {
     pub cleanup_files: Vec<PathBuf>,
 }
 
-pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: bool) -> Result<()> {
+pub fn process_release(
+    release_dir: &Path,
+    delete_archives: bool,
+    dry_run: bool,
+    keep_failed: bool,
+) -> Result<()> {
     info!("Prüfe Release: {}", release_dir.display());
 
     let plan = create_extract_plan(release_dir)?;
@@ -34,9 +39,10 @@ pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: b
     validate_extraction(&plan.output_dir)?;
     info!("Entpackung validiert: {}", plan.output_dir.display());
 
-    execute_cleanup(&plan, delete_archives)?;
+    execute_cleanup(&plan, delete_archives, dry_run)?;
 
     info!("Konfiguration delete_archives={}", delete_archives);
+    info!("Konfiguration dry_run={}", dry_run);
     info!("Konfiguration keep_failed={}", keep_failed);
 
     Ok(())
@@ -165,7 +171,7 @@ fn validate_extraction(output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool) -> Result<()> {
+fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool, dry_run: bool) -> Result<()> {
     if plan.cleanup_files.is_empty() {
         warn!("Cleanup: Keine Archivdateien gefunden.");
         return Ok(());
@@ -179,6 +185,21 @@ fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool) -> Result<()> {
         }
 
         warn!("Es wurde nichts gelöscht, weil delete_archives=false ist.");
+        return Ok(());
+    }
+
+    if dry_run {
+        warn!("Cleanup Dry-Run aktiv: Diese Archivdateien würden gelöscht werden:");
+
+        for file in &plan.cleanup_files {
+            if !is_safe_cleanup_file(&plan.release_dir, file) {
+                bail!("Unsicherer Cleanup-Pfad blockiert: {}", file.display());
+            }
+
+            info!("Dry-Run Cleanup-Kandidat: {}", file.display());
+        }
+
+        warn!("Dry-Run aktiv: Es wurde nichts gelöscht.");
         return Ok(());
     }
 
