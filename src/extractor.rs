@@ -55,6 +55,23 @@ pub fn create_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
     })
 }
 
+pub fn has_archive_start(release_dir: &Path) -> Result<bool> {
+    Ok(find_archive_start(release_dir)?.is_some())
+}
+
+pub fn is_archive_related_file(path: &Path) -> bool {
+    let Some(file_name) = path.file_name() else {
+        return false;
+    };
+
+    let lower = file_name.to_string_lossy().to_lowercase();
+
+    lower.ends_with(".rar")
+        || lower.ends_with(".zip")
+        || lower.ends_with(".7z")
+        || lower.ends_with(".001")
+}
+
 fn verify_archive(archive: &Path) -> Result<()> {
     info!("Starte Archivprüfung mit 7z: {}", archive.display());
 

@@ -107,6 +107,10 @@ fn scan_existing_releases(
             continue;
         }
 
+        if !extractor::is_archive_related_file(path) {
+            continue;
+        }
+
         if let Some(release_dir) = detect_release_dir(path) {
             if history.is_done(&release_dir) {
                 info!(
@@ -137,10 +141,21 @@ fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
                     continue;
                 }
 
-                if path.is_file() {
-                    if let Some(release_dir) = detect_release_dir(&path) {
-                        upsert_release(releases, release_dir);
-                    }
+                if !path.is_file() {
+                    continue;
+                }
+
+                let Some(release_dir) = detect_release_dir(&path) else {
+                    continue;
+                };
+
+                let known_release = releases.iter().any(|release| release.path == release_dir);
+                let archive_related = extractor::is_archive_related_file(&path);
+
+                if known_release || archive_related {
+                    upsert_release(releases, release_dir);
+                } else {
+                    info!("Ignoriere Nicht-Archiv-Datei: {}", path.display());
                 }
             }
         }
@@ -204,6 +219,25 @@ fn check_ready_releases(
         let age = release.last_seen.elapsed().as_secs();
 
         if age >= stable_after_seconds {
+            match extractor::has_archive_start(&release.path) {
+                Ok(true) => {}
+                Ok(false) => {
+                    warn!(
+                        "Release hat noch kein Startarchiv, warte weiter: {}",
+                        release.path.display()
+                    );
+                    continue;
+                }
+                Err(err) => {
+                    error!(
+                        "Konnte Release nicht auf Startarchiv prüfen: {}",
+                        release.path.display()
+                    );
+                    error!("{:?}", err);
+                    continue;
+                }
+            }
+
             info!("Release ist bereit: {}", release.path.display());
 
             let added = queue.push(release.path.clone());

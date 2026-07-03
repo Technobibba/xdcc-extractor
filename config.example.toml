@@ -5,7 +5,7 @@
 [watch]
 
 # Ordner der überwacht wird
-directory="/media/HDD3/XDCC_TEST"
+directory="/downloads"
 
 # Sekunden bis ein Release vollständig ist
 stable_after=30
