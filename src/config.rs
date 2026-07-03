@@ -8,6 +8,7 @@ pub struct Config {
     pub extract: ExtractConfig,
     pub history: HistoryConfig,
     pub retry: RetryConfig,
+    pub startup: StartupConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -32,6 +33,11 @@ pub struct HistoryConfig {
 pub struct RetryConfig {
     pub base_delay: u64,
     pub max_delay: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StartupConfig {
+    pub scan_existing: bool,
 }
 
 impl Config {

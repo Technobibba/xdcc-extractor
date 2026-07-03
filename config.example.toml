@@ -37,3 +37,9 @@ base_delay=60
 
 # Maximale Wartezeit nach mehreren Fehlern in Sekunden.
 max_delay=1800
+
+[startup]
+
+# Wenn true, werden vorhandene Releases beim Start verarbeitet.
+# Wenn false, verarbeitet der Worker nur neue Downloads ab Programmstart.
+scan_existing=false

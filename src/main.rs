@@ -50,6 +50,8 @@ fn main() -> anyhow::Result<()> {
     let dry_run = config.extract.dry_run;
     let keep_failed = config.extract.keep_failed;
 
+    let startup_scan_existing = config.startup.scan_existing;
+
     let retry = RetrySettings {
         base_delay: config.retry.base_delay,
         max_delay: config.retry.max_delay,
@@ -70,6 +72,7 @@ fn main() -> anyhow::Result<()> {
     info!("History-Ordner: {}", config.history.directory);
     info!("Retry base_delay={}s", retry.base_delay);
     info!("Retry max_delay={}s", retry.max_delay);
+    info!("Startup-Scan aktiviert: {}", startup_scan_existing);
 
     let (tx, rx) = channel();
 
@@ -86,7 +89,11 @@ fn main() -> anyhow::Result<()> {
     let mut known_ready: HashSet<PathBuf> = HashSet::new();
     let mut queue = JobQueue::new();
 
-    scan_existing_releases(Path::new(&watch_path), &mut releases, &history)?;
+    if startup_scan_existing {
+        scan_existing_releases(Path::new(&watch_path), &mut releases, &history)?;
+    } else {
+        info!("Startup-Scan deaktiviert. Vorhandene Releases werden ignoriert.");
+    }
 
     loop {
         match rx.recv_timeout(Duration::from_secs(5)) {

@@ -17,3 +17,6 @@ directory="/state/history"
 [retry]
 base_delay=60
 max_delay=1800
+
+[startup]
+scan_existing=false
