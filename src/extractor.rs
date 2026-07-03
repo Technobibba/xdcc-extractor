@@ -13,6 +13,7 @@ use walkdir::WalkDir;
 pub struct ExtractPlan {
     pub archive: PathBuf,
     pub output_dir: PathBuf,
+    pub cleanup_files: Vec<PathBuf>,
 }
 
 pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: bool) -> Result<()> {
@@ -32,7 +33,8 @@ pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: b
     validate_extraction(&plan.output_dir)?;
     info!("Entpackung validiert: {}", plan.output_dir.display());
 
-    info!("Archive werden in dieser Version noch nicht gelöscht.");
+    log_cleanup_plan(&plan, delete_archives);
+
     info!("Konfiguration delete_archives={}", delete_archives);
     info!("Konfiguration keep_failed={}", keep_failed);
 
@@ -48,10 +50,12 @@ pub fn create_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
     })?;
 
     let output_dir = release_dir.join("_extracted");
+    let cleanup_files = find_cleanup_files(release_dir)?;
 
     Ok(ExtractPlan {
         archive,
         output_dir,
+        cleanup_files,
     })
 }
 
@@ -64,12 +68,8 @@ pub fn is_archive_related_file(path: &Path) -> bool {
         return false;
     };
 
-    let lower = file_name.to_string_lossy().to_lowercase();
-
-    lower.ends_with(".rar")
-        || lower.ends_with(".zip")
-        || lower.ends_with(".7z")
-        || lower.ends_with(".001")
+    let file_name = file_name.to_string_lossy();
+    is_archive_file_name(&file_name)
 }
 
 fn verify_archive(archive: &Path) -> Result<()> {
@@ -163,14 +163,64 @@ fn validate_extraction(output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
+fn log_cleanup_plan(plan: &ExtractPlan, delete_archives: bool) {
+    if plan.cleanup_files.is_empty() {
+        warn!("Cleanup-Plan: Keine Archivdateien gefunden.");
+        return;
+    }
+
+    if delete_archives {
+        warn!("Cleanup-Testmodus aktiv: Diese Dateien würden später gelöscht:");
+    } else {
+        info!("Cleanup deaktiviert. Erkannte Archivdateien:");
+    }
+
+    for file in &plan.cleanup_files {
+        info!("Cleanup-Kandidat: {}", file.display());
+    }
+
+    warn!("Es wurde nichts gelöscht. Cleanup ist aktuell nur ein Testplan.");
+}
+
+fn find_cleanup_files(release_dir: &Path) -> Result<Vec<PathBuf>> {
+    let mut files = Vec::new();
+
+    for entry in fs::read_dir(release_dir)
+        .with_context(|| format!("Kann Release-Ordner nicht lesen: {}", release_dir.display()))?
+    {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !path.is_file() {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name() else {
+            continue;
+        };
+
+        let file_name = file_name.to_string_lossy();
+
+        if is_archive_file_name(&file_name) {
+            files.push(path);
+        }
+    }
+
+    files.sort();
+
+    Ok(files)
+}
+
 fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
     let part01_re = Regex::new(r"(?i)\.part0*1\.rar$")?;
     let rar_part_re = Regex::new(r"(?i)\.part\d+\.rar$")?;
+    let split001_re = Regex::new(r"(?i)\.001$")?;
 
     let mut part01_archives = Vec::new();
     let mut rar_archives = Vec::new();
     let mut zip_archives = Vec::new();
     let mut seven_zip_archives = Vec::new();
+    let mut split001_archives = Vec::new();
 
     for entry in fs::read_dir(release_dir)
         .with_context(|| format!("Kann Release-Ordner nicht lesen: {}", release_dir.display()))?
@@ -197,6 +247,8 @@ fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
             zip_archives.push(path);
         } else if lower.ends_with(".7z") {
             seven_zip_archives.push(path);
+        } else if split001_re.is_match(&file_name) {
+            split001_archives.push(path);
         }
     }
 
@@ -204,6 +256,7 @@ fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
     rar_archives.sort();
     zip_archives.sort();
     seven_zip_archives.sort();
+    split001_archives.sort();
 
     if let Some(path) = part01_archives.first() {
         return Ok(Some(path.clone()));
@@ -221,5 +274,29 @@ fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
         return Ok(Some(path.clone()));
     }
 
+    if let Some(path) = split001_archives.first() {
+        return Ok(Some(path.clone()));
+    }
+
     Ok(None)
+}
+
+fn is_archive_file_name(file_name: &str) -> bool {
+    let lower = file_name.to_lowercase();
+
+    if lower.ends_with(".rar") || lower.ends_with(".zip") || lower.ends_with(".7z") {
+        return true;
+    }
+
+    let legacy_rar_re = Regex::new(r"(?i)\.r\d{2}$").expect("Invalid legacy rar regex");
+    if legacy_rar_re.is_match(file_name) {
+        return true;
+    }
+
+    let split_re = Regex::new(r"(?i)\.\d{3}$").expect("Invalid split archive regex");
+    if split_re.is_match(file_name) {
+        return true;
+    }
+
+    false
 }
