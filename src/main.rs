@@ -32,6 +32,12 @@ enum JobResult {
     NoJob,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct RetrySettings {
+    base_delay: u64,
+    max_delay: u64,
+}
+
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().init();
 
@@ -42,6 +48,11 @@ fn main() -> anyhow::Result<()> {
 
     let delete_archives = config.extract.delete_archives;
     let keep_failed = config.extract.keep_failed;
+
+    let retry = RetrySettings {
+        base_delay: config.retry.base_delay,
+        max_delay: config.retry.max_delay,
+    };
 
     let history = history::History::new(&config.history.directory)?;
 
@@ -55,6 +66,8 @@ fn main() -> anyhow::Result<()> {
     info!("Archive nach Erfolg löschen: {}", delete_archives);
     info!("Fehlerhafte Archive behalten: {}", keep_failed);
     info!("History-Ordner: {}", config.history.directory);
+    info!("Retry base_delay={}s", retry.base_delay);
+    info!("Retry max_delay={}s", retry.max_delay);
 
     let (tx, rx) = channel();
 
@@ -86,6 +99,7 @@ fn main() -> anyhow::Result<()> {
             &mut queue,
             &history,
             stable_after_seconds,
+            retry,
         );
 
         match process_next_job(&mut queue, &history, delete_archives, keep_failed) {
@@ -220,12 +234,24 @@ fn reset_release_timer(releases: &mut Vec<ReleaseCandidate>, release_dir: &Path)
     }
 }
 
+fn retry_delay_seconds(attempts: u64, retry: RetrySettings) -> u64 {
+    if attempts == 0 {
+        return 0;
+    }
+
+    let multiplier = 2_u64.saturating_pow((attempts - 1).min(10) as u32);
+    let delay = retry.base_delay.saturating_mul(multiplier);
+
+    delay.min(retry.max_delay)
+}
+
 fn check_ready_releases(
     releases: &[ReleaseCandidate],
     known_ready: &mut HashSet<PathBuf>,
     queue: &mut JobQueue,
     history: &history::History,
     stable_after_seconds: u64,
+    retry: RetrySettings,
 ) {
     for release in releases {
         if known_ready.contains(&release.path) {
@@ -242,44 +268,58 @@ fn check_ready_releases(
         }
 
         let age = release.last_seen.elapsed().as_secs();
+        let attempts = history.failed_attempts(&release.path).unwrap_or(0);
+        let retry_delay = retry_delay_seconds(attempts, retry);
+        let required_wait = stable_after_seconds.max(retry_delay);
 
-        if age >= stable_after_seconds {
-            match extractor::has_archive_start(&release.path) {
-                Ok(true) => {}
-                Ok(false) => {
-                    warn!(
-                        "Release hat noch kein Startarchiv, warte weiter: {}",
-                        release.path.display()
-                    );
-                    continue;
-                }
-                Err(err) => {
-                    error!(
-                        "Konnte Release nicht auf Startarchiv prüfen: {}",
-                        release.path.display()
-                    );
-                    error!("{:?}", err);
-                    continue;
-                }
+        if age < required_wait {
+            if attempts > 0 {
+                warn!(
+                    "Release wartet nach Fehlversuch {} noch: {} / {}s",
+                    attempts,
+                    release.path.display(),
+                    age
+                );
+            } else {
+                warn!("Release wartet noch: {} / {}s", release.path.display(), age);
             }
 
-            info!("Release ist bereit: {}", release.path.display());
+            continue;
+        }
 
-            let added = queue.push(release.path.clone());
-
-            if added {
-                info!("Release zur Queue hinzugefügt: {}", release.path.display());
-            } else {
-                info!(
-                    "Release war bereits in der Queue: {}",
+        match extractor::has_archive_start(&release.path) {
+            Ok(true) => {}
+            Ok(false) => {
+                warn!(
+                    "Release hat noch kein Startarchiv, warte weiter: {}",
                     release.path.display()
                 );
+                continue;
             }
-
-            known_ready.insert(release.path.clone());
-        } else {
-            warn!("Release wartet noch: {} / {}s", release.path.display(), age);
+            Err(err) => {
+                error!(
+                    "Konnte Release nicht auf Startarchiv prüfen: {}",
+                    release.path.display()
+                );
+                error!("{:?}", err);
+                continue;
+            }
         }
+
+        info!("Release ist bereit: {}", release.path.display());
+
+        let added = queue.push(release.path.clone());
+
+        if added {
+            info!("Release zur Queue hinzugefügt: {}", release.path.display());
+        } else {
+            info!(
+                "Release war bereits in der Queue: {}",
+                release.path.display()
+            );
+        }
+
+        known_ready.insert(release.path.clone());
     }
 }
 

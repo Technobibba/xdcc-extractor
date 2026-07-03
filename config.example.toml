@@ -23,3 +23,11 @@ keep_failed=true
 
 # Ordner für verarbeitete Releases
 directory="state/history"
+
+[retry]
+
+# Mindestwartezeit nach einem Fehler
+base_delay=60
+
+# Maximale Wartezeit nach mehreren Fehlern
+max_delay=1800

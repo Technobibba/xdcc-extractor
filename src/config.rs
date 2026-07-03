@@ -7,6 +7,7 @@ pub struct Config {
     pub watch: WatchConfig,
     pub extract: ExtractConfig,
     pub history: HistoryConfig,
+    pub retry: RetryConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,6 +25,12 @@ pub struct ExtractConfig {
 #[derive(Debug, Deserialize)]
 pub struct HistoryConfig {
     pub directory: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RetryConfig {
+    pub base_delay: u64,
+    pub max_delay: u64,
 }
 
 impl Config {
