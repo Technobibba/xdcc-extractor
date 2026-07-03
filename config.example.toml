@@ -1,33 +1,36 @@
 ##############################################
-# XDCC Worker Configuration
+# XDCC Extractor Configuration
 ##############################################
 
 [watch]
 
-# Ordner der überwacht wird
+# Ordner, den der Worker überwacht.
+# Im Docker-Container ist das normalerweise /downloads.
 directory="/downloads"
 
-# Sekunden bis ein Release vollständig ist
+# Sekunden ohne Änderung, bevor ein Release als vollständig gilt.
 stable_after=30
 
 
 [extract]
 
-# Archive nach erfolgreichem Entpacken löschen
+# Archive nach erfolgreichem Entpacken löschen.
 delete_archives=true
 
-# Fehlerhafte Archive behalten
+# Fehlerhafte Archive behalten.
 keep_failed=true
+
 
 [history]
 
-# Ordner für verarbeitete Releases
-directory="state/history"
+# Ordner für verarbeitete und fehlgeschlagene Releases.
+directory="/state/history"
+
 
 [retry]
 
-# Mindestwartezeit nach einem Fehler
+# Mindestwartezeit nach einem Fehler in Sekunden.
 base_delay=60
 
-# Maximale Wartezeit nach mehreren Fehlern
+# Maximale Wartezeit nach mehreren Fehlern in Sekunden.
 max_delay=1800

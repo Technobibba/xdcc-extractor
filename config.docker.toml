@@ -1,0 +1,18 @@
+##############################################
+# XDCC Extractor Docker Configuration
+##############################################
+
+[watch]
+directory="/downloads"
+stable_after=30
+
+[extract]
+delete_archives=true
+keep_failed=true
+
+[history]
+directory="/state/history"
+
+[retry]
+base_delay=60
+max_delay=1800

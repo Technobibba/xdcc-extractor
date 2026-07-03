@@ -1,4 +1,6 @@
-target/
-Cargo.lock
-.env
+/target/
 config.toml
+state/history/
+state/*.tmp
+logs/
+*.log
