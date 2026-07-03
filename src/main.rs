@@ -27,7 +27,7 @@ struct ReleaseCandidate {
 
 #[derive(Debug)]
 enum JobResult {
-    Success(PathBuf),
+    Success,
     Failed(PathBuf),
     NoJob,
 }
@@ -89,7 +89,7 @@ fn main() -> anyhow::Result<()> {
         );
 
         match process_next_job(&mut queue, &history, delete_archives, keep_failed) {
-            JobResult::Success(_) | JobResult::NoJob => {}
+            JobResult::Success | JobResult::NoJob => {}
             JobResult::Failed(path) => {
                 warn!(
                     "Release wird nach Fehler später erneut geprüft: {}",
@@ -318,11 +318,29 @@ fn process_next_job(
                 }
             }
 
-            JobResult::Success(job)
+            JobResult::Success
         }
         Err(err) => {
+            let error_text = format!("{:?}", err);
+
             error!("Job fehlgeschlagen: {}", job.display());
-            error!("{:?}", err);
+            error!("{}", error_text);
+
+            match history.mark_failed(&job, &error_text) {
+                Ok(()) => {
+                    let attempts = history.failed_attempts(&job).unwrap_or(0);
+
+                    warn!(
+                        "Fehlerstatus gespeichert: {}",
+                        history.failed_marker_path(&job).display()
+                    );
+                    warn!("Fehlversuche bisher: {}", attempts);
+                }
+                Err(history_err) => {
+                    error!("Konnte Fehlerstatus nicht speichern: {:?}", history_err);
+                }
+            }
+
             JobResult::Failed(job)
         }
     }
