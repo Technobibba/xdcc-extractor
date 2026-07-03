@@ -11,6 +11,7 @@ use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
 pub struct ExtractPlan {
+    pub release_dir: PathBuf,
     pub archive: PathBuf,
     pub output_dir: PathBuf,
     pub cleanup_files: Vec<PathBuf>,
@@ -33,7 +34,7 @@ pub fn process_release(release_dir: &Path, delete_archives: bool, keep_failed: b
     validate_extraction(&plan.output_dir)?;
     info!("Entpackung validiert: {}", plan.output_dir.display());
 
-    log_cleanup_plan(&plan, delete_archives);
+    execute_cleanup(&plan, delete_archives)?;
 
     info!("Konfiguration delete_archives={}", delete_archives);
     info!("Konfiguration keep_failed={}", keep_failed);
@@ -53,6 +54,7 @@ pub fn create_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
     let cleanup_files = find_cleanup_files(release_dir)?;
 
     Ok(ExtractPlan {
+        release_dir: release_dir.to_path_buf(),
         archive,
         output_dir,
         cleanup_files,
@@ -163,23 +165,63 @@ fn validate_extraction(output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn log_cleanup_plan(plan: &ExtractPlan, delete_archives: bool) {
+fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool) -> Result<()> {
     if plan.cleanup_files.is_empty() {
-        warn!("Cleanup-Plan: Keine Archivdateien gefunden.");
-        return;
+        warn!("Cleanup: Keine Archivdateien gefunden.");
+        return Ok(());
     }
 
-    if delete_archives {
-        warn!("Cleanup-Testmodus aktiv: Diese Dateien würden später gelöscht:");
-    } else {
+    if !delete_archives {
         info!("Cleanup deaktiviert. Erkannte Archivdateien:");
+
+        for file in &plan.cleanup_files {
+            info!("Cleanup-Kandidat: {}", file.display());
+        }
+
+        warn!("Es wurde nichts gelöscht, weil delete_archives=false ist.");
+        return Ok(());
     }
+
+    warn!("Cleanup aktiv: Archivdateien werden jetzt gelöscht.");
 
     for file in &plan.cleanup_files {
-        info!("Cleanup-Kandidat: {}", file.display());
+        if !is_safe_cleanup_file(&plan.release_dir, file) {
+            bail!("Unsicherer Cleanup-Pfad blockiert: {}", file.display());
+        }
+
+        info!("Lösche Archivdatei: {}", file.display());
+
+        fs::remove_file(file)
+            .with_context(|| format!("Konnte Archivdatei nicht löschen: {}", file.display()))?;
     }
 
-    warn!("Es wurde nichts gelöscht. Cleanup ist aktuell nur ein Testplan.");
+    info!(
+        "Cleanup abgeschlossen: {} Datei(en) gelöscht",
+        plan.cleanup_files.len()
+    );
+
+    Ok(())
+}
+
+fn is_safe_cleanup_file(release_dir: &Path, file: &Path) -> bool {
+    if file.parent() != Some(release_dir) {
+        return false;
+    }
+
+    let Some(file_name) = file.file_name() else {
+        return false;
+    };
+
+    let file_name = file_name.to_string_lossy();
+
+    if !is_archive_file_name(&file_name) {
+        return false;
+    }
+
+    match fs::symlink_metadata(file) {
+        Ok(metadata) => metadata.file_type().is_file(),
+        Err(_) => false,
+    }
 }
 
 fn find_cleanup_files(release_dir: &Path) -> Result<Vec<PathBuf>> {
@@ -191,7 +233,7 @@ fn find_cleanup_files(release_dir: &Path) -> Result<Vec<PathBuf>> {
         let entry = entry?;
         let path = entry.path();
 
-        if !path.is_file() {
+        if !is_regular_file(&path) {
             continue;
         }
 
@@ -228,7 +270,7 @@ fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
         let entry = entry?;
         let path = entry.path();
 
-        if !path.is_file() {
+        if !is_regular_file(&path) {
             continue;
         }
 
@@ -279,6 +321,13 @@ fn find_archive_start(release_dir: &Path) -> Result<Option<PathBuf>> {
     }
 
     Ok(None)
+}
+
+fn is_regular_file(path: &Path) -> bool {
+    match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata.file_type().is_file(),
+        Err(_) => false,
+    }
 }
 
 fn is_archive_file_name(file_name: &str) -> bool {
