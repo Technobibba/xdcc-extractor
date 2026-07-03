@@ -17,6 +17,7 @@ use std::{
 };
 
 use tracing::{error, info, warn};
+use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
 struct ReleaseCandidate {
@@ -63,6 +64,8 @@ fn main() -> anyhow::Result<()> {
     let mut known_ready: HashSet<PathBuf> = HashSet::new();
     let mut queue = JobQueue::new();
 
+    scan_existing_releases(Path::new(&watch_path), &mut releases, &history)?;
+
     loop {
         match rx.recv_timeout(Duration::from_secs(5)) {
             Ok(Ok(event)) => handle_event(event, &mut releases),
@@ -80,6 +83,49 @@ fn main() -> anyhow::Result<()> {
 
         process_next_job(&mut queue, &history, delete_archives, keep_failed);
     }
+}
+
+fn scan_existing_releases(
+    watch_path: &Path,
+    releases: &mut Vec<ReleaseCandidate>,
+    history: &history::History,
+) -> anyhow::Result<()> {
+    info!("Scanne vorhandene Releases in {}", watch_path.display());
+
+    for entry in WalkDir::new(watch_path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+    {
+        let path = entry.path();
+
+        if is_ignored_path(path) {
+            continue;
+        }
+
+        if !path.is_file() {
+            continue;
+        }
+
+        if let Some(release_dir) = detect_release_dir(path) {
+            if history.is_done(&release_dir) {
+                info!(
+                    "Bereits verarbeitet, überspringe beim Startup-Scan: {}",
+                    release_dir.display()
+                );
+                continue;
+            }
+
+            upsert_release(releases, release_dir);
+        }
+    }
+
+    info!(
+        "Startup-Scan abgeschlossen: {} Kandidat(en)",
+        releases.len()
+    );
+
+    Ok(())
 }
 
 fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
