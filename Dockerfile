@@ -24,6 +24,10 @@ RUN set -eux; \
         p7zip-full \
         unrar \
         unzip \
+        tar \
+        gzip \
+        xz-utils \
+        bzip2 \
     ; \
     rm -rf /var/lib/apt/lists/*
 

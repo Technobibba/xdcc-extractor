@@ -244,7 +244,13 @@ fn detect_release_target(
             return None;
         }
 
-        let target = extractor::root_archive_target(file)?;
+        let Some(target) = extractor::root_archive_target(file) else {
+            info!(
+                "Ignoriere Root-Datei, kein unterstütztes Archivformat: {}",
+                file.display()
+            );
+            return None;
+        };
 
         info!(
             "Root-Archiv erkannt: {} -> Ziel {}",

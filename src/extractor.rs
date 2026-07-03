@@ -145,6 +145,10 @@ fn verify_archive(archive: &Path) -> Result<()> {
         return verify_archive_with_unrar(archive);
     }
 
+    if is_tar_archive_path(archive) {
+        return verify_archive_with_tar(archive);
+    }
+
     verify_archive_with_7z(archive)
 }
 
@@ -172,6 +176,10 @@ fn extract_archive(plan: &ExtractPlan) -> Result<()> {
 
     if is_rar_archive_path(&plan.archive) {
         return extract_archive_with_unrar(plan);
+    }
+
+    if is_tar_archive_path(&plan.archive) {
+        return extract_archive_with_tar(plan);
     }
 
     extract_archive_with_7z(plan)
@@ -232,6 +240,82 @@ fn extract_archive_with_7z(plan: &ExtractPlan) -> Result<()> {
         .with_context(|| "Konnte 7z nicht starten. Ist p7zip-full installiert?")?;
 
     check_command_success("Entpackung", "7z", &plan.archive, output)
+}
+
+fn verify_archive_with_tar(archive: &Path) -> Result<()> {
+    info!("Starte Archivprüfung mit tar: {}", archive.display());
+
+    let output = Command::new("tar")
+        .arg(tar_test_flag(archive)?)
+        .arg(archive)
+        .output()
+        .with_context(|| "Konnte tar nicht starten. Ist tar im Container installiert?")?;
+
+    check_command_success("Archivprüfung", "tar", archive, output)
+}
+
+fn extract_archive_with_tar(plan: &ExtractPlan) -> Result<()> {
+    info!("Starte Entpackung mit tar: {}", plan.archive.display());
+
+    let output = Command::new("tar")
+        .arg(tar_extract_flag(&plan.archive)?)
+        .arg(&plan.archive)
+        .arg("-C")
+        .arg(&plan.output_dir)
+        .output()
+        .with_context(|| "Konnte tar nicht starten. Ist tar im Container installiert?")?;
+
+    check_command_success("Entpackung", "tar", &plan.archive, output)
+}
+
+fn tar_test_flag(path: &Path) -> Result<&'static str> {
+    let lower = path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .with_context(|| format!("Archiv hat keinen Dateinamen: {}", path.display()))?;
+
+    if lower.ends_with(".tar") {
+        return Ok("-tf");
+    }
+
+    if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        return Ok("-tzf");
+    }
+
+    if lower.ends_with(".tar.xz") || lower.ends_with(".txz") {
+        return Ok("-tJf");
+    }
+
+    if lower.ends_with(".tar.bz2") || lower.ends_with(".tbz2") {
+        return Ok("-tjf");
+    }
+
+    bail!("Nicht unterstütztes TAR-Format: {}", path.display())
+}
+
+fn tar_extract_flag(path: &Path) -> Result<&'static str> {
+    let lower = path
+        .file_name()
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .with_context(|| format!("Archiv hat keinen Dateinamen: {}", path.display()))?;
+
+    if lower.ends_with(".tar") {
+        return Ok("-xf");
+    }
+
+    if lower.ends_with(".tar.gz") || lower.ends_with(".tgz") {
+        return Ok("-xzf");
+    }
+
+    if lower.ends_with(".tar.xz") || lower.ends_with(".txz") {
+        return Ok("-xJf");
+    }
+
+    if lower.ends_with(".tar.bz2") || lower.ends_with(".tbz2") {
+        return Ok("-xjf");
+    }
+
+    bail!("Nicht unterstütztes TAR-Format: {}", path.display())
 }
 
 fn check_command_success(
@@ -455,6 +539,12 @@ fn belongs_to_cleanup_group(file_name: &str, group_prefix: &str) -> bool {
         || lower == format!("{}.zip", prefix)
         || lower == format!("{}.7z", prefix)
         || lower == format!("{}.tar", prefix)
+        || lower == format!("{}.tar.gz", prefix)
+        || lower == format!("{}.tgz", prefix)
+        || lower == format!("{}.tar.xz", prefix)
+        || lower == format!("{}.txz", prefix)
+        || lower == format!("{}.tar.bz2", prefix)
+        || lower == format!("{}.tbz2", prefix)
         || lower.starts_with(&format!("{}.part", prefix)) && lower.ends_with(".rar")
         || lower.starts_with(&format!("{}.", prefix))
             && is_numbered_suffix(&lower[prefix.len() + 1..])
@@ -505,6 +595,12 @@ fn is_archive_start_file(path: &Path) -> bool {
         || lower.ends_with(".zip")
         || lower.ends_with(".7z")
         || lower.ends_with(".tar")
+        || lower.ends_with(".tar.gz")
+        || lower.ends_with(".tgz")
+        || lower.ends_with(".tar.xz")
+        || lower.ends_with(".txz")
+        || lower.ends_with(".tar.bz2")
+        || lower.ends_with(".tbz2")
         || split001_re.is_match(&file_name)
 }
 
@@ -520,7 +616,20 @@ fn flat_release_name(archive: &Path) -> Result<String> {
 fn strip_archive_extension(file_name: &str) -> String {
     let lower = file_name.to_lowercase();
 
-    for suffix in [".part01.rar", ".rar", ".zip", ".7z", ".tar", ".001"] {
+    for suffix in [
+        ".part01.rar",
+        ".tar.bz2",
+        ".tar.gz",
+        ".tar.xz",
+        ".tbz2",
+        ".tgz",
+        ".txz",
+        ".rar",
+        ".zip",
+        ".7z",
+        ".tar",
+        ".001",
+    ] {
         if lower.ends_with(suffix) {
             let cut = file_name.len() - suffix.len();
             return file_name[..cut].to_string();
@@ -542,6 +651,26 @@ fn sanitize_name(name: &str) -> String {
         .collect()
 }
 
+fn is_tar_archive_path(path: &Path) -> bool {
+    let Some(file_name) = path.file_name() else {
+        return false;
+    };
+
+    let lower = file_name.to_string_lossy().to_lowercase();
+
+    is_tar_archive_name(&lower)
+}
+
+fn is_tar_archive_name(file_name: &str) -> bool {
+    file_name.ends_with(".tar")
+        || file_name.ends_with(".tar.gz")
+        || file_name.ends_with(".tgz")
+        || file_name.ends_with(".tar.xz")
+        || file_name.ends_with(".txz")
+        || file_name.ends_with(".tar.bz2")
+        || file_name.ends_with(".tbz2")
+}
+
 fn is_regular_file(path: &Path) -> bool {
     match fs::symlink_metadata(path) {
         Ok(metadata) => metadata.file_type().is_file(),
@@ -556,6 +685,12 @@ fn is_archive_file_name(file_name: &str) -> bool {
         || lower.ends_with(".zip")
         || lower.ends_with(".7z")
         || lower.ends_with(".tar")
+        || lower.ends_with(".tar.gz")
+        || lower.ends_with(".tgz")
+        || lower.ends_with(".tar.xz")
+        || lower.ends_with(".txz")
+        || lower.ends_with(".tar.bz2")
+        || lower.ends_with(".tbz2")
     {
         return true;
     }
