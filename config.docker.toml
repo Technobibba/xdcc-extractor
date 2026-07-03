@@ -5,6 +5,7 @@
 [watch]
 directory="/downloads"
 stable_after=30
+allow_root_archives=true
 
 [extract]
 delete_archives=true

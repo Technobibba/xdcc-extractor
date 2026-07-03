@@ -15,6 +15,7 @@ pub struct Config {
 pub struct WatchConfig {
     pub directory: String,
     pub stable_after: u64,
+    pub allow_root_archives: bool,
 }
 
 #[derive(Debug, Deserialize)]

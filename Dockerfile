@@ -12,11 +12,20 @@ FROM debian:bookworm-slim
 
 ENV TZ=Europe/Berlin
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    p7zip-full \
-    unzip \
-    && rm -rf /var/lib/apt/lists/*
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i 's/Components: main/Components: main contrib non-free non-free-firmware/g' /etc/apt/sources.list.d/debian.sources; \
+    elif [ -f /etc/apt/sources.list ]; then \
+        sed -i 's/ main/ main contrib non-free non-free-firmware/g' /etc/apt/sources.list; \
+    fi; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        p7zip-full \
+        unrar \
+        unzip \
+    ; \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

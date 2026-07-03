@@ -8,6 +8,6 @@ services:
       TZ: Europe/Berlin
 
     volumes:
-      - /media/HDD3/XDCC_TEST:/downloads
+      - /media/HDD3/XDCC:/downloads
       - ./config.docker.toml:/app/config.toml:ro
       - ./state:/state

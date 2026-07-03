@@ -11,6 +11,7 @@ directory="/downloads"
 # Sekunden ohne Änderung, bevor ein Release als vollständig gilt.
 stable_after=30
 
+allow_root_archives=false
 
 [extract]
 

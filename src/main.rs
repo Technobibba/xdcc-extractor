@@ -44,7 +44,9 @@ fn main() -> anyhow::Result<()> {
     let config = config::Config::load("config.toml")?;
 
     let watch_path = config.watch.directory.clone();
+    let watch_root = PathBuf::from(&watch_path);
     let stable_after_seconds = config.watch.stable_after;
+    let allow_root_archives = config.watch.allow_root_archives;
 
     let delete_archives = config.extract.delete_archives;
     let dry_run = config.extract.dry_run;
@@ -61,7 +63,8 @@ fn main() -> anyhow::Result<()> {
 
     info!("XDCC Extractor startet...");
     info!("{:#?}", config);
-    info!("Überwache {}", watch_path);
+    info!("Überwache {}", watch_root.display());
+    info!("Root-Archive erlaubt: {}", allow_root_archives);
     info!(
         "Release gilt nach {} Sekunden ohne Änderung als fertig",
         stable_after_seconds
@@ -83,21 +86,21 @@ fn main() -> anyhow::Result<()> {
         NotifyConfig::default(),
     )?;
 
-    watcher.watch(Path::new(&watch_path), RecursiveMode::Recursive)?;
+    watcher.watch(&watch_root, RecursiveMode::Recursive)?;
 
     let mut releases: Vec<ReleaseCandidate> = Vec::new();
     let mut known_ready: HashSet<PathBuf> = HashSet::new();
     let mut queue = JobQueue::new();
 
     if startup_scan_existing {
-        scan_existing_releases(Path::new(&watch_path), &mut releases, &history)?;
+        scan_existing_releases(&watch_root, &mut releases, &history, allow_root_archives)?;
     } else {
         info!("Startup-Scan deaktiviert. Vorhandene Releases werden ignoriert.");
     }
 
     loop {
         match rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(Ok(event)) => handle_event(event, &mut releases),
+            Ok(Ok(event)) => handle_event(event, &mut releases, &watch_root, allow_root_archives),
             Ok(Err(e)) => error!("Watch Error: {:?}", e),
             Err(_) => {}
         }
@@ -130,6 +133,7 @@ fn scan_existing_releases(
     watch_path: &Path,
     releases: &mut Vec<ReleaseCandidate>,
     history: &history::History,
+    allow_root_archives: bool,
 ) -> anyhow::Result<()> {
     info!("Scanne vorhandene Releases in {}", watch_path.display());
 
@@ -152,16 +156,16 @@ fn scan_existing_releases(
             continue;
         }
 
-        if let Some(release_dir) = detect_release_dir(path) {
-            if history.is_done(&release_dir) {
+        if let Some(target) = detect_release_target(path, watch_path, allow_root_archives) {
+            if history.is_done(&target) {
                 info!(
                     "Bereits verarbeitet, überspringe beim Startup-Scan: {}",
-                    release_dir.display()
+                    target.display()
                 );
                 continue;
             }
 
-            upsert_release(releases, release_dir);
+            upsert_release(releases, target);
         }
     }
 
@@ -173,7 +177,12 @@ fn scan_existing_releases(
     Ok(())
 }
 
-fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
+fn handle_event(
+    event: Event,
+    releases: &mut Vec<ReleaseCandidate>,
+    watch_path: &Path,
+    allow_root_archives: bool,
+) {
     match event.kind {
         EventKind::Create(_) | EventKind::Modify(_) => {
             for path in event.paths {
@@ -186,15 +195,16 @@ fn handle_event(event: Event, releases: &mut Vec<ReleaseCandidate>) {
                     continue;
                 }
 
-                let Some(release_dir) = detect_release_dir(&path) else {
+                let Some(target) = detect_release_target(&path, watch_path, allow_root_archives)
+                else {
                     continue;
                 };
 
-                let known_release = releases.iter().any(|release| release.path == release_dir);
+                let known_release = releases.iter().any(|release| release.path == target);
                 let archive_related = extractor::is_archive_related_file(&path);
 
                 if known_release || archive_related {
-                    upsert_release(releases, release_dir);
+                    upsert_release(releases, target);
                 } else {
                     info!("Ignoriere Nicht-Archiv-Datei: {}", path.display());
                 }
@@ -218,26 +228,52 @@ fn is_ignored_path(path: &Path) -> bool {
     })
 }
 
-fn detect_release_dir(file: &Path) -> Option<PathBuf> {
-    file.parent().map(|p| p.to_path_buf())
+fn detect_release_target(
+    file: &Path,
+    watch_path: &Path,
+    allow_root_archives: bool,
+) -> Option<PathBuf> {
+    let parent = file.parent()?;
+
+    if parent == watch_path {
+        if !allow_root_archives {
+            warn!(
+                "Ignoriere Datei direkt im Watch-Root. allow_root_archives=false: {}",
+                file.display()
+            );
+            return None;
+        }
+
+        let target = extractor::root_archive_target(file)?;
+
+        info!(
+            "Root-Archiv erkannt: {} -> Ziel {}",
+            file.display(),
+            target.display()
+        );
+
+        return Some(target);
+    }
+
+    Some(parent.to_path_buf())
 }
 
-fn upsert_release(releases: &mut Vec<ReleaseCandidate>, release_dir: PathBuf) {
-    if let Some(existing) = releases.iter_mut().find(|r| r.path == release_dir) {
+fn upsert_release(releases: &mut Vec<ReleaseCandidate>, release_target: PathBuf) {
+    if let Some(existing) = releases.iter_mut().find(|r| r.path == release_target) {
         existing.last_seen = Instant::now();
         info!("Release aktualisiert: {}", existing.path.display());
     } else {
-        info!("Neues Release erkannt: {}", release_dir.display());
+        info!("Neues Release erkannt: {}", release_target.display());
 
         releases.push(ReleaseCandidate {
-            path: release_dir,
+            path: release_target,
             last_seen: Instant::now(),
         });
     }
 }
 
-fn reset_release_timer(releases: &mut Vec<ReleaseCandidate>, release_dir: &Path) {
-    if let Some(existing) = releases.iter_mut().find(|r| r.path == release_dir) {
+fn reset_release_timer(releases: &mut Vec<ReleaseCandidate>, release_target: &Path) {
+    if let Some(existing) = releases.iter_mut().find(|r| r.path == release_target) {
         existing.last_seen = Instant::now();
         info!("Release-Timer zurückgesetzt: {}", existing.path.display());
     }
