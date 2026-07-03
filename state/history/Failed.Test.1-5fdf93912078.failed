@@ -1,5 +1,0 @@
-status=failed
-release=/media/HDD3/XDCC_TEST/Failed.Test.1
-attempts=2
-last_failed_at_unix=1783082938
-error=Archivprüfung fehlgeschlagen: /media/HDD3/XDCC_TEST/Failed.Test.1/test.zip\n\nSTDOUT:\n\n7-Zip 25.01 (x64) : Copyright (c) 1999-2025 Igor Pavlov : 2025-08-03\n 64-bit locale=de_DE.UTF-8 Threads:4 OPEN_MAX:1024, ASM\n\nScanning the drive for archives:\n1 file, 19 bytes (1 KiB)\n\nTesting archive: /media/HDD3/XDCC_TEST/Failed.Test.1/test.zip\n\nCan't open as archive: 1\nFiles: 0\nSize:       0\nCompressed: 0\n\n\nSTDERR:\nERROR: /media/HDD3/XDCC_TEST/Failed.Test.1/test.zip\n/media/HDD3/XDCC_TEST/Failed.Test.1/test.zip\nOpen ERROR: Cannot open the file as [zip] archive\n\n\nERRORS:\nIs not archive\n
