@@ -25,6 +25,13 @@ struct ReleaseCandidate {
     last_seen: Instant,
 }
 
+#[derive(Debug)]
+enum JobResult {
+    Success(PathBuf),
+    Failed(PathBuf),
+    NoJob,
+}
+
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().init();
 
@@ -81,7 +88,18 @@ fn main() -> anyhow::Result<()> {
             stable_after_seconds,
         );
 
-        process_next_job(&mut queue, &history, delete_archives, keep_failed);
+        match process_next_job(&mut queue, &history, delete_archives, keep_failed) {
+            JobResult::Success(_) | JobResult::NoJob => {}
+            JobResult::Failed(path) => {
+                warn!(
+                    "Release wird nach Fehler später erneut geprüft: {}",
+                    path.display()
+                );
+
+                known_ready.remove(&path);
+                reset_release_timer(&mut releases, &path);
+            }
+        }
     }
 }
 
@@ -195,6 +213,13 @@ fn upsert_release(releases: &mut Vec<ReleaseCandidate>, release_dir: PathBuf) {
     }
 }
 
+fn reset_release_timer(releases: &mut Vec<ReleaseCandidate>, release_dir: &Path) {
+    if let Some(existing) = releases.iter_mut().find(|r| r.path == release_dir) {
+        existing.last_seen = Instant::now();
+        info!("Release-Timer zurückgesetzt: {}", existing.path.display());
+    }
+}
+
 fn check_ready_releases(
     releases: &[ReleaseCandidate],
     known_ready: &mut HashSet<PathBuf>,
@@ -263,15 +288,15 @@ fn process_next_job(
     history: &history::History,
     delete_archives: bool,
     keep_failed: bool,
-) {
+) -> JobResult {
     if queue.is_empty() {
-        return;
+        return JobResult::NoJob;
     }
 
     info!("Queue enthält {} Job(s)", queue.len());
 
     let Some(job) = queue.pop() else {
-        return;
+        return JobResult::NoJob;
     };
 
     info!("Starte Job: {}", job.display());
@@ -289,12 +314,16 @@ fn process_next_job(
                 }
                 Err(err) => {
                     error!("Konnte History nicht speichern: {:?}", err);
+                    return JobResult::Failed(job);
                 }
             }
+
+            JobResult::Success(job)
         }
         Err(err) => {
             error!("Job fehlgeschlagen: {}", job.display());
             error!("{:?}", err);
+            JobResult::Failed(job)
         }
     }
 }
