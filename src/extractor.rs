@@ -454,6 +454,7 @@ fn belongs_to_cleanup_group(file_name: &str, group_prefix: &str) -> bool {
     lower == format!("{}.rar", prefix)
         || lower == format!("{}.zip", prefix)
         || lower == format!("{}.7z", prefix)
+        || lower == format!("{}.tar", prefix)
         || lower.starts_with(&format!("{}.part", prefix)) && lower.ends_with(".rar")
         || lower.starts_with(&format!("{}.", prefix))
             && is_numbered_suffix(&lower[prefix.len() + 1..])
@@ -503,6 +504,7 @@ fn is_archive_start_file(path: &Path) -> bool {
         || lower.ends_with(".rar") && !rar_part_re.is_match(&file_name)
         || lower.ends_with(".zip")
         || lower.ends_with(".7z")
+        || lower.ends_with(".tar")
         || split001_re.is_match(&file_name)
 }
 
@@ -518,7 +520,7 @@ fn flat_release_name(archive: &Path) -> Result<String> {
 fn strip_archive_extension(file_name: &str) -> String {
     let lower = file_name.to_lowercase();
 
-    for suffix in [".part01.rar", ".rar", ".zip", ".7z", ".001"] {
+    for suffix in [".part01.rar", ".rar", ".zip", ".7z", ".tar", ".001"] {
         if lower.ends_with(suffix) {
             let cut = file_name.len() - suffix.len();
             return file_name[..cut].to_string();
@@ -550,7 +552,11 @@ fn is_regular_file(path: &Path) -> bool {
 fn is_archive_file_name(file_name: &str) -> bool {
     let lower = file_name.to_lowercase();
 
-    if lower.ends_with(".rar") || lower.ends_with(".zip") || lower.ends_with(".7z") {
+    if lower.ends_with(".rar")
+        || lower.ends_with(".zip")
+        || lower.ends_with(".7z")
+        || lower.ends_with(".tar")
+    {
         return true;
     }
 
