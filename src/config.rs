@@ -6,6 +6,7 @@ use std::fs;
 pub struct Config {
     pub watch: WatchConfig,
     pub extract: ExtractConfig,
+    pub output: OutputConfig,
     pub history: HistoryConfig,
     pub retry: RetryConfig,
     pub startup: StartupConfig,
@@ -23,6 +24,11 @@ pub struct ExtractConfig {
     pub delete_archives: bool,
     pub dry_run: bool,
     pub keep_failed: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OutputConfig {
+    pub directory: String,
 }
 
 #[derive(Debug, Deserialize)]

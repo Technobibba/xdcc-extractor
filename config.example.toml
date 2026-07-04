@@ -44,3 +44,8 @@ max_delay=1800
 # Wenn true, werden vorhandene Releases beim Start verarbeitet.
 # Wenn false, verarbeitet der Worker nur neue Downloads ab Programmstart.
 scan_existing=false
+
+[output]
+
+# Zielordner für entpackte Dateien.
+directory="/downloads/_extracted"

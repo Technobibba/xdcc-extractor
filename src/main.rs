@@ -47,6 +47,7 @@ fn main() -> anyhow::Result<()> {
     let watch_root = PathBuf::from(&watch_path);
     let stable_after_seconds = config.watch.stable_after;
     let allow_root_archives = config.watch.allow_root_archives;
+    let output_directory = PathBuf::from(&config.output.directory);
 
     let delete_archives = config.extract.delete_archives;
     let dry_run = config.extract.dry_run;
@@ -65,6 +66,7 @@ fn main() -> anyhow::Result<()> {
     info!("{:#?}", config);
     info!("Überwache {}", watch_root.display());
     info!("Root-Archive erlaubt: {}", allow_root_archives);
+    info!("Output-Ordner: {}", output_directory.display());
     info!(
         "Release gilt nach {} Sekunden ohne Änderung als fertig",
         stable_after_seconds
@@ -114,7 +116,14 @@ fn main() -> anyhow::Result<()> {
             retry,
         );
 
-        match process_next_job(&mut queue, &history, delete_archives, dry_run, keep_failed) {
+        match process_next_job(
+            &mut queue,
+            &history,
+            &output_directory,
+            delete_archives,
+            dry_run,
+            keep_failed,
+        ) {
             JobResult::Success | JobResult::NoJob => {}
             JobResult::Failed(path) => {
                 warn!(
@@ -377,6 +386,7 @@ fn check_ready_releases(
 fn process_next_job(
     queue: &mut JobQueue,
     history: &history::History,
+    output_base: &Path,
     delete_archives: bool,
     dry_run: bool,
     keep_failed: bool,
@@ -393,7 +403,7 @@ fn process_next_job(
 
     info!("Starte Job: {}", job.display());
 
-    match extractor::process_release(&job, delete_archives, dry_run, keep_failed) {
+    match extractor::process_release(&job, output_base, delete_archives, dry_run, keep_failed) {
         Ok(()) => {
             info!("Job abgeschlossen: {}", job.display());
 

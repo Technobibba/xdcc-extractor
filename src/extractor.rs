@@ -19,13 +19,14 @@ pub struct ExtractPlan {
 
 pub fn process_release(
     target: &Path,
+    output_base: &Path,
     delete_archives: bool,
     dry_run: bool,
     keep_failed: bool,
 ) -> Result<()> {
     info!("Prüfe Release: {}", target.display());
 
-    let plan = create_extract_plan(target)?;
+    let plan = create_extract_plan(target, output_base)?;
 
     info!("Archiv-Start gefunden: {}", plan.archive.display());
     info!("Zielordner für Entpackung: {}", plan.output_dir.display());
@@ -41,6 +42,7 @@ pub fn process_release(
 
     execute_cleanup(&plan, delete_archives, dry_run)?;
 
+    info!("Konfiguration output_base={}", output_base.display());
     info!("Konfiguration delete_archives={}", delete_archives);
     info!("Konfiguration dry_run={}", dry_run);
     info!("Konfiguration keep_failed={}", keep_failed);
@@ -48,15 +50,15 @@ pub fn process_release(
     Ok(())
 }
 
-pub fn create_extract_plan(target: &Path) -> Result<ExtractPlan> {
+pub fn create_extract_plan(target: &Path, output_base: &Path) -> Result<ExtractPlan> {
     if target.is_file() {
-        return create_flat_extract_plan(target);
+        return create_flat_extract_plan(target, output_base);
     }
 
-    create_folder_extract_plan(target)
+    create_folder_extract_plan(target, output_base)
 }
 
-fn create_folder_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
+fn create_folder_extract_plan(release_dir: &Path, output_base: &Path) -> Result<ExtractPlan> {
     let archive = find_archive_start_in_dir(release_dir)?.with_context(|| {
         format!(
             "Kein unterstütztes Archiv gefunden in {}",
@@ -64,7 +66,12 @@ fn create_folder_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
         )
     })?;
 
-    let output_dir = release_dir.join("_extracted");
+    let release_name = release_dir
+        .file_name()
+        .map(|name| name.to_string_lossy().to_string())
+        .unwrap_or_else(|| "unknown".to_string());
+
+    let output_dir = output_base.join(sanitize_name(&release_name));
     let cleanup_files = find_cleanup_files_in_dir(release_dir)?;
 
     Ok(ExtractPlan {
@@ -75,14 +82,14 @@ fn create_folder_extract_plan(release_dir: &Path) -> Result<ExtractPlan> {
     })
 }
 
-fn create_flat_extract_plan(archive: &Path) -> Result<ExtractPlan> {
+fn create_flat_extract_plan(archive: &Path, output_base: &Path) -> Result<ExtractPlan> {
     let release_root = archive
         .parent()
         .with_context(|| format!("Archiv hat keinen Parent: {}", archive.display()))?
         .to_path_buf();
 
     let release_name = flat_release_name(archive)?;
-    let output_dir = release_root.join("_extracted").join(release_name);
+    let output_dir = output_base.join(release_name);
 
     let cleanup_files = find_related_flat_cleanup_files(archive)?;
 
