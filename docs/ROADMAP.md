@@ -116,3 +116,23 @@ Aktuell:
 
 ```text
 /downloads/_extracted/Release.Name/
+
+---
+
+## Passwortarchive
+
+### Erledigt
+
+- Passwortdatei in der Config
+- Passwortliste wird geladen
+- Kommentare und leere Zeilen werden ignoriert
+- Passwortgeschützte Archive werden erkannt
+- Passwörter werden nacheinander getestet
+- Erfolgreiches Passwort wird für die Entpackung verwendet
+- Fehler werden sauber klassifiziert
+
+### Geplant
+
+- Fehlerstatus `password_required`
+- Optional getrennte Meldung für Passwortfehler
+- Passwortliste über WebUI verwalten

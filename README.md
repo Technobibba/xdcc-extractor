@@ -105,3 +105,22 @@ notify_on_every_error=false
 # Wenn notify_on_every_error=false ist,
 # wird erst ab diesem Fehlversuch eine Meldung gesendet.
 notify_after_attempts=3
+
+---
+
+## Passwortgeschützte Archive
+
+XDCC Extractor kann passwortgeschützte Archive mit einer Passwortliste verarbeiten.
+
+Ablauf:
+
+```text
+Archiv prüfen
+↓
+Passwortfehler erkannt
+↓
+Passwortliste laden
+↓
+Passwörter nacheinander testen
+↓
+mit passendem Passwort entpacken
