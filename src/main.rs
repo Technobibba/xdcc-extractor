@@ -2,6 +2,7 @@ mod config;
 mod extractor;
 mod history;
 mod notifications;
+mod passwords;
 mod queue;
 
 use notify::{
@@ -53,6 +54,7 @@ fn main() -> anyhow::Result<()> {
     let delete_archives = config.extract.delete_archives;
     let dry_run = config.extract.dry_run;
     let keep_failed = config.extract.keep_failed;
+    let passwords = passwords::load_passwords(&config.extract.password_file)?;
 
     let startup_scan_existing = config.startup.scan_existing;
 
@@ -76,6 +78,8 @@ fn main() -> anyhow::Result<()> {
     info!("Archive nach Erfolg löschen: {}", delete_archives);
     info!("Dry-Run aktiv: {}", dry_run);
     info!("Fehlerhafte Archive behalten: {}", keep_failed);
+    info!("Passwortdatei: {}", config.extract.password_file);
+    info!("Geladene Passwörter: {}", passwords.len());
     info!("History-Ordner: {}", config.history.directory);
     info!("Retry base_delay={}s", retry.base_delay);
     info!("Retry max_delay={}s", retry.max_delay);

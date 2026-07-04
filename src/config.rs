@@ -25,6 +25,7 @@ pub struct ExtractConfig {
     pub delete_archives: bool,
     pub dry_run: bool,
     pub keep_failed: bool,
+    pub password_file: String,
 }
 
 #[derive(Debug, Deserialize)]

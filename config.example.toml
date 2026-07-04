@@ -24,6 +24,9 @@ dry_run=true
 # Fehlerhafte Archive behalten.
 keep_failed=true
 
+# Optionale Passwortdatei.
+# Leer lassen, wenn keine Passwortliste genutzt werden soll.
+password_file=""
 
 [history]
 
