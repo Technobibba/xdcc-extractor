@@ -337,15 +337,72 @@ fn check_command_success(
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}\n{}", stdout, stderr);
+
+    let reason = classify_archive_error(&combined);
 
     bail!(
-        "{} fehlgeschlagen mit {}: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+        "{} fehlgeschlagen mit {}: {}\n\nGrund: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
         action,
         tool,
         archive.display(),
+        reason,
         stdout,
         stderr
     );
+}
+
+fn classify_archive_error(output: &str) -> &'static str {
+    let lower = output.to_lowercase();
+
+    if lower.contains("password")
+        || lower.contains("encrypted")
+        || lower.contains("wrong password")
+        || lower.contains("enter password")
+        || lower.contains("data error in encrypted file")
+        || lower.contains("crc failed in encrypted file")
+    {
+        return "Passwort erforderlich oder falsches Passwort";
+    }
+
+    if lower.contains("unexpected end of archive")
+        || lower.contains("unexpected end of data")
+        || lower.contains("end of archive")
+        || lower.contains("data error")
+        || lower.contains("crc failed")
+        || lower.contains("checksum error")
+        || lower.contains("headers error")
+        || lower.contains("archive is corrupted")
+        || lower.contains("corrupt")
+    {
+        return "Archiv beschädigt oder unvollständig";
+    }
+
+    if lower.contains("no such file")
+        || lower.contains("cannot open")
+        || lower.contains("cannot find")
+        || lower.contains("missing volume")
+        || lower.contains("volume is absent")
+    {
+        return "Datei oder Archiv-Part fehlt";
+    }
+
+    if lower.contains("unsupported method")
+        || lower.contains("unsupported compression method")
+        || lower.contains("not supported")
+        || lower.contains("unknown method")
+    {
+        return "Archivmethode oder Format wird nicht unterstützt";
+    }
+
+    if lower.contains("is not archive")
+        || lower.contains("not archive")
+        || lower.contains("can not open the file as archive")
+    {
+        return "Datei ist kein gültiges Archiv";
+    }
+
+    "Unbekannter Archivfehler"
 }
 
 fn is_rar_archive_path(path: &Path) -> bool {
@@ -894,5 +951,55 @@ mod tests {
         assert!(!belongs_to_cleanup_group("Other.Release.rar", &prefix));
         assert!(!belongs_to_cleanup_group("Movie.Release.mkv", &prefix));
         assert!(!belongs_to_cleanup_group("Movie.Release.srt", &prefix));
+    }
+}
+
+#[cfg(test)]
+mod error_classification_tests {
+    use super::*;
+
+    #[test]
+    fn detects_password_errors() {
+        let output = "ERROR: Data Error in encrypted file. Wrong password?";
+        assert_eq!(
+            classify_archive_error(output),
+            "Passwort erforderlich oder falsches Passwort"
+        );
+    }
+
+    #[test]
+    fn detects_corrupt_archives() {
+        let output = "CRC Failed. Archive is corrupted.";
+        assert_eq!(
+            classify_archive_error(output),
+            "Archiv beschädigt oder unvollständig"
+        );
+    }
+
+    #[test]
+    fn detects_missing_parts() {
+        let output = "Cannot find volume. Missing volume is absent.";
+        assert_eq!(
+            classify_archive_error(output),
+            "Datei oder Archiv-Part fehlt"
+        );
+    }
+
+    #[test]
+    fn detects_unsupported_methods() {
+        let output = "ERROR: Unsupported Method";
+        assert_eq!(
+            classify_archive_error(output),
+            "Archivmethode oder Format wird nicht unterstützt"
+        );
+    }
+
+    #[test]
+    fn detects_invalid_archives() {
+        let output = "Can not open the file as archive";
+        assert_eq!(
+            classify_archive_error(output),
+            "Datei ist kein gültiges Archiv"
+        );
     }
 }
