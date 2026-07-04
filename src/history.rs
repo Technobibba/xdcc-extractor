@@ -153,3 +153,64 @@ fn current_unix_timestamp() -> Result<u64> {
         .context("Systemzeit liegt vor UNIX_EPOCH")?
         .as_secs())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn history_marks_release_as_done() {
+        let dir = tempdir().expect("tempdir");
+        let history = History::new(dir.path()).expect("history");
+
+        let release = Path::new("/downloads/Test.Release");
+
+        assert!(!history.is_done(release));
+
+        history.mark_done(release).expect("mark done");
+
+        assert!(history.is_done(release));
+        assert!(history.marker_path(release).exists());
+    }
+
+    #[test]
+    fn history_tracks_failed_attempts() {
+        let dir = tempdir().expect("tempdir");
+        let history = History::new(dir.path()).expect("history");
+
+        let release = Path::new("/downloads/Broken.Release");
+
+        history
+            .mark_failed(release, "first error")
+            .expect("first failed");
+
+        assert_eq!(history.failed_attempts(release).expect("attempts"), 1);
+
+        history
+            .mark_failed(release, "second error")
+            .expect("second failed");
+
+        assert_eq!(history.failed_attempts(release).expect("attempts"), 2);
+        assert!(history.failed_marker_path(release).exists());
+    }
+
+    #[test]
+    fn mark_done_clears_failed_marker() {
+        let dir = tempdir().expect("tempdir");
+        let history = History::new(dir.path()).expect("history");
+
+        let release = Path::new("/downloads/Recovered.Release");
+
+        history
+            .mark_failed(release, "temporary error")
+            .expect("mark failed");
+
+        assert!(history.failed_marker_path(release).exists());
+
+        history.mark_done(release).expect("mark done");
+
+        assert!(history.marker_path(release).exists());
+        assert!(!history.failed_marker_path(release).exists());
+    }
+}
