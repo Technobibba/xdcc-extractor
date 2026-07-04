@@ -714,3 +714,185 @@ fn is_archive_file_name(file_name: &str) -> bool {
 
     false
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn detects_supported_archive_file_names() {
+        let supported = [
+            "movie.rar",
+            "movie.part01.rar",
+            "movie.part02.rar",
+            "movie.zip",
+            "movie.7z",
+            "movie.001",
+            "movie.r00",
+            "movie.tar",
+            "movie.tar.gz",
+            "movie.tgz",
+            "movie.tar.xz",
+            "movie.txz",
+            "movie.tar.bz2",
+            "movie.tbz2",
+        ];
+
+        for file in supported {
+            assert!(
+                is_archive_file_name(file),
+                "sollte als Archiv erkannt werden: {}",
+                file
+            );
+        }
+    }
+
+    #[test]
+    fn ignores_non_archive_file_names() {
+        let ignored = [
+            "movie.mkv",
+            "movie.mp4",
+            "subtitle.srt",
+            "info.nfo",
+            "readme.txt",
+            "poster.jpg",
+            "sample.avi",
+        ];
+
+        for file in ignored {
+            assert!(
+                !is_archive_file_name(file),
+                "sollte nicht als Archiv erkannt werden: {}",
+                file
+            );
+        }
+    }
+
+    #[test]
+    fn detects_archive_start_files() {
+        let starts = [
+            "/downloads/movie.rar",
+            "/downloads/movie.part01.rar",
+            "/downloads/movie.part001.rar",
+            "/downloads/movie.zip",
+            "/downloads/movie.7z",
+            "/downloads/movie.001",
+            "/downloads/movie.tar",
+            "/downloads/movie.tar.gz",
+            "/downloads/movie.tgz",
+            "/downloads/movie.tar.xz",
+            "/downloads/movie.txz",
+            "/downloads/movie.tar.bz2",
+            "/downloads/movie.tbz2",
+        ];
+
+        for file in starts {
+            assert!(
+                is_archive_start_file(Path::new(file)),
+                "sollte Startarchiv sein: {}",
+                file
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_non_start_rar_parts() {
+        let non_starts = [
+            "/downloads/movie.part02.rar",
+            "/downloads/movie.part10.rar",
+            "/downloads/movie.part999.rar",
+        ];
+
+        for file in non_starts {
+            assert!(
+                !is_archive_start_file(Path::new(file)),
+                "sollte kein Startarchiv sein: {}",
+                file
+            );
+        }
+    }
+
+    #[test]
+    fn strips_archive_extensions_for_release_names() {
+        let cases = [
+            ("Movie.Name.rar", "Movie.Name"),
+            ("Movie.Name.zip", "Movie.Name"),
+            ("Movie.Name.7z", "Movie.Name"),
+            ("Movie.Name.tar", "Movie.Name"),
+            ("Movie.Name.tar.gz", "Movie.Name"),
+            ("Movie.Name.tgz", "Movie.Name"),
+            ("Movie.Name.tar.xz", "Movie.Name"),
+            ("Movie.Name.txz", "Movie.Name"),
+            ("Movie.Name.tar.bz2", "Movie.Name"),
+            ("Movie.Name.tbz2", "Movie.Name"),
+            ("Movie.Name.001", "Movie.Name"),
+            ("Movie.Name.part01.rar", "Movie.Name"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                strip_archive_extension(input),
+                expected,
+                "falscher Release-Name für {}",
+                input
+            );
+        }
+    }
+
+    #[test]
+    fn detects_tar_archive_names() {
+        let tar_files = [
+            "backup.tar",
+            "backup.tar.gz",
+            "backup.tgz",
+            "backup.tar.xz",
+            "backup.txz",
+            "backup.tar.bz2",
+            "backup.tbz2",
+        ];
+
+        for file in tar_files {
+            assert!(
+                is_tar_archive_name(file),
+                "sollte TAR-Archiv sein: {}",
+                file
+            );
+        }
+    }
+
+    #[test]
+    fn maps_root_rar_parts_to_first_part() {
+        let target = root_archive_target(Path::new("/downloads/movie.part08.rar"))
+            .expect("Root target erwartet");
+
+        assert_eq!(target, Path::new("/downloads/movie.part01.rar"));
+    }
+
+    #[test]
+    fn maps_root_split_parts_to_first_part() {
+        let target =
+            root_archive_target(Path::new("/downloads/movie.007")).expect("Root target erwartet");
+
+        assert_eq!(target, Path::new("/downloads/movie.001"));
+    }
+
+    #[test]
+    fn cleanup_group_matches_related_files_only() {
+        let prefix = cleanup_group_prefix("Movie.Release.part01.rar");
+
+        assert!(belongs_to_cleanup_group(
+            "Movie.Release.part01.rar",
+            &prefix
+        ));
+        assert!(belongs_to_cleanup_group(
+            "Movie.Release.part02.rar",
+            &prefix
+        ));
+        assert!(belongs_to_cleanup_group("Movie.Release.rar", &prefix));
+
+        assert!(!belongs_to_cleanup_group("Other.Release.rar", &prefix));
+        assert!(!belongs_to_cleanup_group("Movie.Release.mkv", &prefix));
+        assert!(!belongs_to_cleanup_group("Movie.Release.srt", &prefix));
+    }
+}
