@@ -68,3 +68,11 @@ priority_success=3
 
 # Priorität für Fehlermeldungen.
 priority_error=8
+
+notify_on_success=true
+
+notify_on_error=true
+
+notify_on_every_error=false
+
+notify_after_attempts=3

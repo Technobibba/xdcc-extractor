@@ -19,15 +19,45 @@ impl Notifications {
     }
 
     pub fn send_success(&self, release: &Path) {
+        let gotify = &self.config.gotify;
+
+        if !gotify.enabled || !gotify.notify_on_success {
+            return;
+        }
+
         let title = "XDCC Extractor: Erfolg";
         let message = format!("Release erfolgreich verarbeitet:\n{}", release.display());
 
-        if let Err(err) = self.send_gotify(title, &message, self.config.gotify.priority_success) {
+        if let Err(err) = self.send_gotify(title, &message, gotify.priority_success) {
             warn!("Gotify-Erfolgsmeldung fehlgeschlagen: {:?}", err);
         }
     }
 
     pub fn send_failure(&self, release: &Path, attempts: u64, error: &str) {
+        let gotify = &self.config.gotify;
+
+        if !gotify.enabled || !gotify.notify_on_error {
+            return;
+        }
+
+        if !gotify.notify_on_every_error {
+            if attempts < gotify.notify_after_attempts {
+                info!(
+                    "Gotify-Fehlermeldung übersprungen: Versuch {}/{}",
+                    attempts, gotify.notify_after_attempts
+                );
+                return;
+            }
+
+            if attempts > gotify.notify_after_attempts {
+                info!(
+                    "Gotify-Fehlermeldung wurde bereits ab Versuch {} gesendet. Aktueller Versuch: {}",
+                    gotify.notify_after_attempts, attempts
+                );
+                return;
+            }
+        }
+
         let title = "XDCC Extractor: Fehler";
         let message = format!(
             "Release fehlgeschlagen:\n{}\n\nFehlversuche: {}\n\nFehler:\n{}",
@@ -36,7 +66,7 @@ impl Notifications {
             shorten(error, 1200)
         );
 
-        if let Err(err) = self.send_gotify(title, &message, self.config.gotify.priority_error) {
+        if let Err(err) = self.send_gotify(title, &message, gotify.priority_error) {
             warn!("Gotify-Fehlermeldung fehlgeschlagen: {:?}", err);
         }
     }

@@ -71,3 +71,37 @@ VALIDATE
 CLEANUP / DRY-RUN
 ↓
 HISTORY
+
+---
+
+## Gotify-Benachrichtigungen
+
+XDCC Extractor kann Benachrichtigungen über Gotify senden.
+
+Aktuell unterstützt:
+
+- Meldung bei erfolgreicher Verarbeitung
+- Meldung bei Fehlern
+- konfigurierbare Prioritäten
+- Schutz vor zu vielen Fehlermeldungen
+
+Beispiel:
+
+```toml
+[notifications.gotify]
+enabled=true
+url="https://gotify.example.com"
+token="YOUR_GOTIFY_APP_TOKEN"
+
+priority_success=3
+priority_error=8
+
+notify_on_success=true
+notify_on_error=true
+
+# Wenn true, wird jeder Fehler gemeldet.
+notify_on_every_error=false
+
+# Wenn notify_on_every_error=false ist,
+# wird erst ab diesem Fehlversuch eine Meldung gesendet.
+notify_after_attempts=3

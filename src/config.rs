@@ -60,6 +60,10 @@ pub struct GotifyConfig {
     pub token: String,
     pub priority_success: i32,
     pub priority_error: i32,
+    pub notify_on_success: bool,
+    pub notify_on_error: bool,
+    pub notify_on_every_error: bool,
+    pub notify_after_attempts: u64,
 }
 
 impl Config {
