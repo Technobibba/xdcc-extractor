@@ -4,3 +4,4 @@ state/history/
 state/*.tmp
 logs/
 *.log
+config.docker.toml

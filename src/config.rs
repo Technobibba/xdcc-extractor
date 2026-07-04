@@ -10,6 +10,7 @@ pub struct Config {
     pub history: HistoryConfig,
     pub retry: RetryConfig,
     pub startup: StartupConfig,
+    pub notifications: NotificationConfig,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,6 +46,20 @@ pub struct RetryConfig {
 #[derive(Debug, Deserialize)]
 pub struct StartupConfig {
     pub scan_existing: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct NotificationConfig {
+    pub gotify: GotifyConfig,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct GotifyConfig {
+    pub enabled: bool,
+    pub url: String,
+    pub token: String,
+    pub priority_success: i32,
+    pub priority_error: i32,
 }
 
 impl Config {

@@ -24,3 +24,10 @@ scan_existing=false
 
 [output]
 directory="/downloads/_extracted"
+
+[notifications.gotify]
+enabled=false
+url=""
+token=""
+priority_success=3
+priority_error=8

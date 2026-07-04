@@ -1,6 +1,7 @@
 mod config;
 mod extractor;
 mod history;
+mod notifications;
 mod queue;
 
 use notify::{
@@ -61,6 +62,7 @@ fn main() -> anyhow::Result<()> {
     };
 
     let history = history::History::new(&config.history.directory)?;
+    let notifications = notifications::Notifications::new(config.notifications.clone());
 
     info!("XDCC Extractor startet...");
     info!("{:#?}", config);
@@ -78,6 +80,7 @@ fn main() -> anyhow::Result<()> {
     info!("Retry base_delay={}s", retry.base_delay);
     info!("Retry max_delay={}s", retry.max_delay);
     info!("Startup-Scan aktiviert: {}", startup_scan_existing);
+    info!("Gotify aktiviert: {}", notifications.gotify_enabled());
 
     let (tx, rx) = channel();
 
@@ -119,6 +122,7 @@ fn main() -> anyhow::Result<()> {
         match process_next_job(
             &mut queue,
             &history,
+            &notifications,
             &output_directory,
             delete_archives,
             dry_run,
@@ -386,6 +390,7 @@ fn check_ready_releases(
 fn process_next_job(
     queue: &mut JobQueue,
     history: &history::History,
+    notifications: &notifications::Notifications,
     output_base: &Path,
     delete_archives: bool,
     dry_run: bool,
@@ -420,6 +425,8 @@ fn process_next_job(
                 }
             }
 
+            notifications.send_success(&job);
+
             JobResult::Success
         }
         Err(err) => {
@@ -437,6 +444,7 @@ fn process_next_job(
                         history.failed_marker_path(&job).display()
                     );
                     warn!("Fehlversuche bisher: {}", attempts);
+                    notifications.send_failure(&job, attempts, &error_text);
                 }
                 Err(history_err) => {
                     error!("Konnte Fehlerstatus nicht speichern: {:?}", history_err);

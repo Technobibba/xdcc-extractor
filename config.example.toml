@@ -49,3 +49,22 @@ scan_existing=false
 
 # Zielordner für entpackte Dateien.
 directory="/downloads/_extracted"
+
+[notifications.gotify]
+
+# Gotify-Benachrichtigungen aktivieren.
+enabled=false
+
+# Beispiel:
+# url="https://gotify.example.com"
+url=""
+
+# Gotify App Token.
+# Niemals echte Tokens ins Git committen.
+token=""
+
+# Priorität für Erfolgsmeldungen.
+priority_success=3
+
+# Priorität für Fehlermeldungen.
+priority_error=8
