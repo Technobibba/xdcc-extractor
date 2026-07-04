@@ -45,6 +45,14 @@ Aktuell unterstützt:
 
 ---
 
+### Output-Ordner
+
+```toml
+[output]
+directory="/downloads/_extracted"
+
+---
+
 ## Verarbeitungspipeline
 
 ```text
