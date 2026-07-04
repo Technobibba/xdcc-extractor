@@ -34,5 +34,9 @@ RUN set -eux; \
 WORKDIR /app
 
 COPY --from=builder /app/target/release/xdcc-extractor /usr/local/bin/xdcc-extractor
+COPY healthcheck.sh /usr/local/bin/xdcc-extractor-healthcheck
+RUN chmod +x /usr/local/bin/xdcc-extractor-healthcheck
+
+HEALTHCHECK --interval=60s --timeout=10s --start-period=20s --retries=3 CMD ["/usr/local/bin/xdcc-extractor-healthcheck"]
 
 ENTRYPOINT ["/usr/local/bin/xdcc-extractor"]
