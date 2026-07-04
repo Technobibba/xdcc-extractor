@@ -4,7 +4,7 @@ use std::{
     ffi::OsString,
     fs,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output},
 };
 use tracing::{info, warn};
 use walkdir::WalkDir;
@@ -23,6 +23,7 @@ pub fn process_release(
     delete_archives: bool,
     dry_run: bool,
     keep_failed: bool,
+    passwords: &[String],
 ) -> Result<()> {
     info!("Prüfe Release: {}", target.display());
 
@@ -31,10 +32,10 @@ pub fn process_release(
     info!("Archiv-Start gefunden: {}", plan.archive.display());
     info!("Zielordner für Entpackung: {}", plan.output_dir.display());
 
-    verify_archive(&plan.archive)?;
+    let password = verify_archive(&plan.archive, passwords)?;
     info!("Archivprüfung erfolgreich: {}", plan.archive.display());
 
-    extract_archive(&plan)?;
+    extract_archive(&plan, password.as_deref())?;
     info!("Entpackung abgeschlossen: {}", plan.output_dir.display());
 
     validate_extraction(&plan.output_dir)?;
@@ -147,19 +148,62 @@ pub fn root_archive_target(path: &Path) -> Option<PathBuf> {
     Some(path.to_path_buf())
 }
 
-fn verify_archive(archive: &Path) -> Result<()> {
+fn verify_archive(archive: &Path, passwords: &[String]) -> Result<Option<String>> {
+    match verify_archive_once(archive, None) {
+        Ok(()) => return Ok(None),
+        Err(first_err) => {
+            let first_error_text = format!("{:?}", first_err);
+
+            if !is_password_error_text(&first_error_text) {
+                bail!("{}", first_error_text);
+            }
+
+            if passwords.is_empty() {
+                bail!(
+                    "Passwort erforderlich, aber keine Passwortdatei oder keine Passwörter konfiguriert.\n\n{}",
+                    first_error_text
+                );
+            }
+
+            warn!(
+                "Archiv benötigt vermutlich ein Passwort. Teste {} Passwort/Passwörter.",
+                passwords.len()
+            );
+
+            for (index, password) in passwords.iter().enumerate() {
+                match verify_archive_once(archive, Some(password)) {
+                    Ok(()) => {
+                        info!("Archivprüfung mit Passwort #{} erfolgreich.", index + 1);
+                        return Ok(Some(password.clone()));
+                    }
+                    Err(_) => {
+                        warn!("Passwort #{} fehlgeschlagen.", index + 1);
+                    }
+                }
+            }
+
+            bail!(
+                "Passwort erforderlich, aber keines der {} konfigurierten Passwörter funktioniert.\n\n{}",
+                passwords.len(),
+                first_error_text
+            );
+        }
+    }
+}
+
+fn verify_archive_once(archive: &Path, password: Option<&str>) -> Result<()> {
     if is_rar_archive_path(archive) {
-        return verify_archive_with_unrar(archive);
+        return verify_archive_with_unrar(archive, password);
     }
 
     if is_tar_archive_path(archive) {
         return verify_archive_with_tar(archive);
     }
 
-    verify_archive_with_7z(archive)
+    verify_archive_with_7z(archive, password)
 }
 
-fn extract_archive(plan: &ExtractPlan) -> Result<()> {
+fn extract_archive(plan: &ExtractPlan, password: Option<&str>) -> Result<()> {
     if plan.output_dir.exists() {
         warn!(
             "Zielordner existiert bereits und wird gelöscht: {}",
@@ -182,67 +226,93 @@ fn extract_archive(plan: &ExtractPlan) -> Result<()> {
     })?;
 
     if is_rar_archive_path(&plan.archive) {
-        return extract_archive_with_unrar(plan);
+        return extract_archive_with_unrar(plan, password);
     }
 
     if is_tar_archive_path(&plan.archive) {
         return extract_archive_with_tar(plan);
     }
 
-    extract_archive_with_7z(plan)
+    extract_archive_with_7z(plan, password)
 }
 
-fn verify_archive_with_unrar(archive: &Path) -> Result<()> {
+fn verify_archive_with_unrar(archive: &Path, password: Option<&str>) -> Result<()> {
     info!("Starte Archivprüfung mit unrar: {}", archive.display());
 
-    let output = Command::new("unrar")
-        .arg("t")
-        .arg("-idq")
-        .arg(archive)
+    let mut command = Command::new("unrar");
+    command.arg("t").arg("-idq");
+
+    if let Some(password) = password {
+        command.arg(format!("-p{}", password));
+    } else {
+        command.arg("-p-");
+    }
+
+    command.arg(archive);
+
+    let output = command
         .output()
         .with_context(|| "Konnte unrar nicht starten. Ist unrar im Container installiert?")?;
 
     check_command_success("Archivprüfung", "unrar", archive, output)
 }
 
-fn verify_archive_with_7z(archive: &Path) -> Result<()> {
+fn verify_archive_with_7z(archive: &Path, password: Option<&str>) -> Result<()> {
     info!("Starte Archivprüfung mit 7z: {}", archive.display());
 
-    let output = Command::new("7z")
-        .arg("t")
-        .arg(archive)
+    let mut command = Command::new("7z");
+    command.arg("t").arg(archive);
+
+    if let Some(password) = password {
+        command.arg(format!("-p{}", password));
+    }
+
+    let output = command
         .output()
         .with_context(|| "Konnte 7z nicht starten. Ist p7zip-full installiert?")?;
 
     check_command_success("Archivprüfung", "7z", archive, output)
 }
 
-fn extract_archive_with_unrar(plan: &ExtractPlan) -> Result<()> {
+fn extract_archive_with_unrar(plan: &ExtractPlan, password: Option<&str>) -> Result<()> {
     info!("Starte Entpackung mit unrar: {}", plan.archive.display());
 
-    let output = Command::new("unrar")
-        .arg("x")
-        .arg("-o+")
-        .arg("-idq")
-        .arg(&plan.archive)
-        .arg(&plan.output_dir)
+    let mut command = Command::new("unrar");
+    command.arg("x").arg("-o+").arg("-idq");
+
+    if let Some(password) = password {
+        command.arg(format!("-p{}", password));
+    } else {
+        command.arg("-p-");
+    }
+
+    command.arg(&plan.archive).arg(&plan.output_dir);
+
+    let output = command
         .output()
         .with_context(|| "Konnte unrar nicht starten. Ist unrar im Container installiert?")?;
 
     check_command_success("Entpackung", "unrar", &plan.archive, output)
 }
 
-fn extract_archive_with_7z(plan: &ExtractPlan) -> Result<()> {
+fn extract_archive_with_7z(plan: &ExtractPlan, password: Option<&str>) -> Result<()> {
     info!("Starte Entpackung mit 7z: {}", plan.archive.display());
 
     let mut output_arg = OsString::from("-o");
     output_arg.push(plan.output_dir.as_os_str());
 
-    let output = Command::new("7z")
+    let mut command = Command::new("7z");
+    command
         .arg("x")
         .arg(&plan.archive)
         .arg(output_arg)
-        .arg("-y")
+        .arg("-y");
+
+    if let Some(password) = password {
+        command.arg(format!("-p{}", password));
+    }
+
+    let output = command
         .output()
         .with_context(|| "Konnte 7z nicht starten. Ist p7zip-full installiert?")?;
 
@@ -325,12 +395,7 @@ fn tar_extract_flag(path: &Path) -> Result<&'static str> {
     bail!("Nicht unterstütztes TAR-Format: {}", path.display())
 }
 
-fn check_command_success(
-    action: &str,
-    tool: &str,
-    archive: &Path,
-    output: std::process::Output,
-) -> Result<()> {
+fn check_command_success(action: &str, tool: &str, archive: &Path, output: Output) -> Result<()> {
     if output.status.success() {
         return Ok(());
     }
@@ -405,14 +470,8 @@ fn classify_archive_error(output: &str) -> &'static str {
     "Unbekannter Archivfehler"
 }
 
-fn is_rar_archive_path(path: &Path) -> bool {
-    let Some(file_name) = path.file_name() else {
-        return false;
-    };
-
-    let lower = file_name.to_string_lossy().to_lowercase();
-
-    lower.ends_with(".rar")
+fn is_password_error_text(output: &str) -> bool {
+    classify_archive_error(output) == "Passwort erforderlich oder falsches Passwort"
 }
 
 fn validate_extraction(output_dir: &Path) -> Result<()> {
@@ -609,9 +668,9 @@ fn belongs_to_cleanup_group(file_name: &str, group_prefix: &str) -> bool {
         || lower == format!("{}.txz", prefix)
         || lower == format!("{}.tar.bz2", prefix)
         || lower == format!("{}.tbz2", prefix)
-        || lower.starts_with(&format!("{}.part", prefix)) && lower.ends_with(".rar")
-        || lower.starts_with(&format!("{}.", prefix))
-            && is_numbered_suffix(&lower[prefix.len() + 1..])
+        || (lower.starts_with(&format!("{}.part", prefix)) && lower.ends_with(".rar"))
+        || (lower.starts_with(&format!("{}.", prefix))
+            && is_numbered_suffix(&lower[prefix.len() + 1..]))
         || lower.starts_with(&format!("{}.r", prefix))
 }
 
@@ -655,7 +714,7 @@ fn is_archive_start_file(path: &Path) -> bool {
     let split001_re = Regex::new(r"(?i)\.001$").expect("Invalid split001 regex");
 
     part01_re.is_match(&file_name)
-        || lower.ends_with(".rar") && !rar_part_re.is_match(&file_name)
+        || (lower.ends_with(".rar") && !rar_part_re.is_match(&file_name))
         || lower.ends_with(".zip")
         || lower.ends_with(".7z")
         || lower.ends_with(".tar")
@@ -733,6 +792,16 @@ fn is_tar_archive_name(file_name: &str) -> bool {
         || file_name.ends_with(".txz")
         || file_name.ends_with(".tar.bz2")
         || file_name.ends_with(".tbz2")
+}
+
+fn is_rar_archive_path(path: &Path) -> bool {
+    let Some(file_name) = path.file_name() else {
+        return false;
+    };
+
+    let lower = file_name.to_string_lossy().to_lowercase();
+
+    lower.ends_with(".rar")
 }
 
 fn is_regular_file(path: &Path) -> bool {
@@ -920,17 +989,13 @@ mod tests {
 
     #[test]
     fn maps_root_rar_parts_to_first_part() {
-        let target = root_archive_target(Path::new("/downloads/movie.part08.rar"))
-            .expect("Root target erwartet");
-
+        let target = root_archive_target(Path::new("/downloads/movie.part08.rar")).expect("target");
         assert_eq!(target, Path::new("/downloads/movie.part01.rar"));
     }
 
     #[test]
     fn maps_root_split_parts_to_first_part() {
-        let target =
-            root_archive_target(Path::new("/downloads/movie.007")).expect("Root target erwartet");
-
+        let target = root_archive_target(Path::new("/downloads/movie.007")).expect("target");
         assert_eq!(target, Path::new("/downloads/movie.001"));
     }
 

@@ -131,6 +131,7 @@ fn main() -> anyhow::Result<()> {
             delete_archives,
             dry_run,
             keep_failed,
+            &passwords,
         ) {
             JobResult::Success | JobResult::NoJob => {}
             JobResult::Failed(path) => {
@@ -399,6 +400,7 @@ fn process_next_job(
     delete_archives: bool,
     dry_run: bool,
     keep_failed: bool,
+    passwords: &[String],
 ) -> JobResult {
     if queue.is_empty() {
         return JobResult::NoJob;
@@ -412,7 +414,14 @@ fn process_next_job(
 
     info!("Starte Job: {}", job.display());
 
-    match extractor::process_release(&job, output_base, delete_archives, dry_run, keep_failed) {
+    match extractor::process_release(
+        &job,
+        output_base,
+        delete_archives,
+        dry_run,
+        keep_failed,
+        passwords,
+    ) {
         Ok(()) => {
             info!("Job abgeschlossen: {}", job.display());
 
