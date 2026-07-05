@@ -143,11 +143,13 @@ fn print_history_summary(history_dir: &str) -> Result<()> {
 
     let mut done = 0;
     let mut failed = 0;
+    let mut failed_entries = Vec::new();
 
     for entry in fs::read_dir(path)
         .with_context(|| format!("Konnte History-Ordner nicht lesen: {}", history_dir))?
     {
         let entry = entry?;
+        let entry_path = entry.path();
         let file_name = entry.file_name().to_string_lossy().to_string();
 
         if file_name.ends_with(".done") {
@@ -156,12 +158,35 @@ fn print_history_summary(history_dir: &str) -> Result<()> {
 
         if file_name.ends_with(".failed") {
             failed += 1;
+
+            let modified = entry
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+
+            failed_entries.push((modified, file_name, entry_path));
         }
     }
+
+    failed_entries.sort_by(|a, b| b.0.cmp(&a.0));
 
     println!("  Status: OK");
     println!("  done: {}", done);
     println!("  failed: {}", failed);
+
+    if !failed_entries.is_empty() {
+        println!("  letzte Fehler:");
+
+        for (_, file_name, entry_path) in failed_entries.iter().take(5) {
+            println!("    - {}", file_name);
+
+            if let Ok(content) = fs::read_to_string(entry_path) {
+                if let Some(reason) = first_error_line(&content) {
+                    println!("      {}", reason);
+                }
+            }
+        }
+    }
 
     Ok(())
 }
@@ -198,4 +223,29 @@ fn toml_bool_nested(
     key: &str,
 ) -> Option<bool> {
     config.get(section)?.get(subsection)?.get(key)?.as_bool()
+}
+
+fn first_error_line(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with("Fehlerklasse:") || trimmed.starts_with("Grund:") {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    content
+        .lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .map(|line| {
+            let mut value = line.to_string();
+
+            if value.chars().count() > 120 {
+                value = value.chars().take(120).collect();
+                value.push_str("...");
+            }
+
+            value
+        })
 }
