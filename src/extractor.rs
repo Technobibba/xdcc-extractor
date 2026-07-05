@@ -1137,3 +1137,126 @@ mod error_kind_tests {
         assert_eq!(kind.code(), "missing_part");
     }
 }
+
+#[cfg(test)]
+mod cleanup_execution_tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn dry_run_cleanup_does_not_delete_files() {
+        let dir = tempdir().expect("tempdir");
+
+        let archive = dir.path().join("Movie.Release.part01.rar");
+        let part2 = dir.path().join("Movie.Release.part02.rar");
+        let output_dir = dir.path().join("_extracted").join("Movie.Release");
+
+        fs::write(&archive, "part1").expect("write part1");
+        fs::write(&part2, "part2").expect("write part2");
+
+        let plan = ExtractPlan {
+            release_root: dir.path().to_path_buf(),
+            archive: archive.clone(),
+            output_dir,
+            cleanup_files: vec![archive.clone(), part2.clone()],
+        };
+
+        execute_cleanup(&plan, true, true).expect("dry-run cleanup");
+
+        assert!(archive.exists());
+        assert!(part2.exists());
+    }
+
+    #[test]
+    fn disabled_cleanup_does_not_delete_files() {
+        let dir = tempdir().expect("tempdir");
+
+        let archive = dir.path().join("Movie.Release.rar");
+        let output_dir = dir.path().join("_extracted").join("Movie.Release");
+
+        fs::write(&archive, "rar").expect("write rar");
+
+        let plan = ExtractPlan {
+            release_root: dir.path().to_path_buf(),
+            archive: archive.clone(),
+            output_dir,
+            cleanup_files: vec![archive.clone()],
+        };
+
+        execute_cleanup(&plan, false, false).expect("disabled cleanup");
+
+        assert!(archive.exists());
+    }
+
+    #[test]
+    fn active_cleanup_deletes_archive_files_in_release_root() {
+        let dir = tempdir().expect("tempdir");
+
+        let archive = dir.path().join("Movie.Release.part01.rar");
+        let part2 = dir.path().join("Movie.Release.part02.rar");
+        let output_dir = dir.path().join("_extracted").join("Movie.Release");
+
+        fs::write(&archive, "part1").expect("write part1");
+        fs::write(&part2, "part2").expect("write part2");
+
+        let plan = ExtractPlan {
+            release_root: dir.path().to_path_buf(),
+            archive: archive.clone(),
+            output_dir,
+            cleanup_files: vec![archive.clone(), part2.clone()],
+        };
+
+        execute_cleanup(&plan, true, false).expect("active cleanup");
+
+        assert!(!archive.exists());
+        assert!(!part2.exists());
+    }
+
+    #[test]
+    fn cleanup_blocks_files_outside_release_root() {
+        let dir = tempdir().expect("tempdir");
+        let outside = tempdir().expect("outside tempdir");
+
+        let archive = dir.path().join("Movie.Release.rar");
+        let outside_archive = outside.path().join("Movie.Release.part02.rar");
+        let output_dir = dir.path().join("_extracted").join("Movie.Release");
+
+        fs::write(&archive, "rar").expect("write rar");
+        fs::write(&outside_archive, "outside").expect("write outside");
+
+        let plan = ExtractPlan {
+            release_root: dir.path().to_path_buf(),
+            archive: archive.clone(),
+            output_dir,
+            cleanup_files: vec![archive.clone(), outside_archive.clone()],
+        };
+
+        let err = execute_cleanup(&plan, true, false).expect_err("should block unsafe cleanup");
+
+        assert!(format!("{:?}", err).contains("Unsicherer Cleanup-Pfad"));
+        assert!(outside_archive.exists());
+    }
+
+    #[test]
+    fn flat_cleanup_finds_only_related_archive_files() {
+        let dir = tempdir().expect("tempdir");
+
+        let part1 = dir.path().join("Movie.Release.part01.rar");
+        let part2 = dir.path().join("Movie.Release.part02.rar");
+        let unrelated = dir.path().join("Other.Release.rar");
+        let video = dir.path().join("Movie.Release.mkv");
+
+        fs::write(&part1, "part1").expect("write part1");
+        fs::write(&part2, "part2").expect("write part2");
+        fs::write(&unrelated, "other").expect("write other");
+        fs::write(&video, "video").expect("write video");
+
+        let cleanup_files = find_related_flat_cleanup_files(&part1).expect("cleanup files");
+
+        assert!(cleanup_files.contains(&part1));
+        assert!(cleanup_files.contains(&part2));
+        assert!(!cleanup_files.contains(&unrelated));
+        assert!(!cleanup_files.contains(&video));
+    }
+}
