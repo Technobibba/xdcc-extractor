@@ -404,20 +404,62 @@ fn check_command_success(action: &str, tool: &str, archive: &Path, output: Outpu
     let stderr = String::from_utf8_lossy(&output.stderr);
     let combined = format!("{}\n{}", stdout, stderr);
 
-    let reason = classify_archive_error(&combined);
+    let error_kind = classify_archive_error_kind(&combined);
 
     bail!(
-        "{} fehlgeschlagen mit {}: {}\n\nGrund: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
+        "{} fehlgeschlagen mit {}: {}\n\nFehlerklasse: {}\nGrund: {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}",
         action,
         tool,
         archive.display(),
-        reason,
+        error_kind.code(),
+        error_kind.message(),
         stdout,
         stderr
     );
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ArchiveErrorKind {
+    PasswordRequired,
+    CorruptArchive,
+    MissingPart,
+    UnsupportedMethod,
+    InvalidArchive,
+    Unknown,
+}
+
+impl ArchiveErrorKind {
+    fn code(self) -> &'static str {
+        match self {
+            ArchiveErrorKind::PasswordRequired => "password_required",
+            ArchiveErrorKind::CorruptArchive => "corrupt_archive",
+            ArchiveErrorKind::MissingPart => "missing_part",
+            ArchiveErrorKind::UnsupportedMethod => "unsupported_method",
+            ArchiveErrorKind::InvalidArchive => "invalid_archive",
+            ArchiveErrorKind::Unknown => "unknown",
+        }
+    }
+
+    fn message(self) -> &'static str {
+        match self {
+            ArchiveErrorKind::PasswordRequired => "Passwort erforderlich oder falsches Passwort",
+            ArchiveErrorKind::CorruptArchive => "Archiv beschädigt oder unvollständig",
+            ArchiveErrorKind::MissingPart => "Datei oder Archiv-Part fehlt",
+            ArchiveErrorKind::UnsupportedMethod => {
+                "Archivmethode oder Format wird nicht unterstützt"
+            }
+            ArchiveErrorKind::InvalidArchive => "Datei ist kein gültiges Archiv",
+            ArchiveErrorKind::Unknown => "Unbekannter Archivfehler",
+        }
+    }
+}
+
+#[cfg(test)]
 fn classify_archive_error(output: &str) -> &'static str {
+    classify_archive_error_kind(output).message()
+}
+
+fn classify_archive_error_kind(output: &str) -> ArchiveErrorKind {
     let lower = output.to_lowercase();
 
     if lower.contains("password")
@@ -427,7 +469,7 @@ fn classify_archive_error(output: &str) -> &'static str {
         || lower.contains("data error in encrypted file")
         || lower.contains("crc failed in encrypted file")
     {
-        return "Passwort erforderlich oder falsches Passwort";
+        return ArchiveErrorKind::PasswordRequired;
     }
 
     if lower.contains("unexpected end of archive")
@@ -440,7 +482,7 @@ fn classify_archive_error(output: &str) -> &'static str {
         || lower.contains("archive is corrupted")
         || lower.contains("corrupt")
     {
-        return "Archiv beschädigt oder unvollständig";
+        return ArchiveErrorKind::CorruptArchive;
     }
 
     if lower.contains("no such file")
@@ -449,7 +491,7 @@ fn classify_archive_error(output: &str) -> &'static str {
         || lower.contains("missing volume")
         || lower.contains("volume is absent")
     {
-        return "Datei oder Archiv-Part fehlt";
+        return ArchiveErrorKind::MissingPart;
     }
 
     if lower.contains("unsupported method")
@@ -457,21 +499,21 @@ fn classify_archive_error(output: &str) -> &'static str {
         || lower.contains("not supported")
         || lower.contains("unknown method")
     {
-        return "Archivmethode oder Format wird nicht unterstützt";
+        return ArchiveErrorKind::UnsupportedMethod;
     }
 
     if lower.contains("is not archive")
         || lower.contains("not archive")
         || lower.contains("can not open the file as archive")
     {
-        return "Datei ist kein gültiges Archiv";
+        return ArchiveErrorKind::InvalidArchive;
     }
 
-    "Unbekannter Archivfehler"
+    ArchiveErrorKind::Unknown
 }
 
 fn is_password_error_text(output: &str) -> bool {
-    classify_archive_error(output) == "Passwort erforderlich oder falsches Passwort"
+    classify_archive_error_kind(output) == ArchiveErrorKind::PasswordRequired
 }
 
 fn validate_extraction(output_dir: &Path) -> Result<()> {
@@ -1066,5 +1108,32 @@ mod error_classification_tests {
             classify_archive_error(output),
             "Datei ist kein gültiges Archiv"
         );
+    }
+}
+
+#[cfg(test)]
+mod error_kind_tests {
+    use super::*;
+
+    #[test]
+    fn password_error_has_machine_readable_code() {
+        let kind = classify_archive_error_kind("Wrong password for encrypted file");
+        assert_eq!(kind.code(), "password_required");
+        assert_eq!(
+            kind.message(),
+            "Passwort erforderlich oder falsches Passwort"
+        );
+    }
+
+    #[test]
+    fn corrupt_error_has_machine_readable_code() {
+        let kind = classify_archive_error_kind("CRC Failed. Archive is corrupted.");
+        assert_eq!(kind.code(), "corrupt_archive");
+    }
+
+    #[test]
+    fn missing_part_error_has_machine_readable_code() {
+        let kind = classify_archive_error_kind("Cannot find volume");
+        assert_eq!(kind.code(), "missing_part");
     }
 }
