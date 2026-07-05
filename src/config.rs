@@ -90,7 +90,7 @@ pub struct NotificationConfig {
     pub gotify: GotifyConfig,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Deserialize, Clone)]
 pub struct GotifyConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -169,6 +169,28 @@ impl Default for NotificationConfig {
         Self {
             gotify: GotifyConfig::default(),
         }
+    }
+}
+
+impl std::fmt::Debug for GotifyConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let token_display = if self.token.trim().is_empty() {
+            "<empty>"
+        } else {
+            "<redacted>"
+        };
+
+        f.debug_struct("GotifyConfig")
+            .field("enabled", &self.enabled)
+            .field("url", &self.url)
+            .field("token", &token_display)
+            .field("priority_success", &self.priority_success)
+            .field("priority_error", &self.priority_error)
+            .field("notify_on_success", &self.notify_on_success)
+            .field("notify_on_error", &self.notify_on_error)
+            .field("notify_on_every_error", &self.notify_on_every_error)
+            .field("notify_after_attempts", &self.notify_after_attempts)
+            .finish()
     }
 }
 
@@ -386,5 +408,30 @@ max_delay=60
 
         let err = load_config(&config_file).expect_err("should fail");
         assert!(format!("{:?}", err).contains("retry.max_delay"));
+    }
+}
+
+#[cfg(test)]
+mod debug_redaction_tests {
+    use super::*;
+
+    #[test]
+    fn gotify_debug_output_redacts_token() {
+        let gotify = GotifyConfig {
+            enabled: true,
+            url: "https://gotify.example.com".to_string(),
+            token: "super-secret-token".to_string(),
+            priority_success: 3,
+            priority_error: 8,
+            notify_on_success: true,
+            notify_on_error: true,
+            notify_on_every_error: false,
+            notify_after_attempts: 3,
+        };
+
+        let debug = format!("{:?}", gotify);
+
+        assert!(debug.contains("<redacted>"));
+        assert!(!debug.contains("super-secret-token"));
     }
 }
