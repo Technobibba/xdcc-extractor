@@ -733,3 +733,31 @@ Später:
 - Release-Übersicht
 - Integration mit Medienbibliothek
 - optionaler Move nach erfolgreicher Verarbeitung
+
+---
+
+## Fehlerklassen
+
+XDCC Extractor klassifiziert typische Archivfehler maschinenlesbar.
+
+Aktuell bekannte Fehlerklassen:
+
+    password_required
+    corrupt_archive
+    missing_part
+    unsupported_method
+    invalid_archive
+    unknown
+
+Beispiel in Logs oder History:
+
+    Fehlerklasse: password_required
+    Grund: Passwort erforderlich oder falsches Passwort
+
+Diese Fehlerklasse wird auch für Gotify genutzt.
+
+Bei `password_required` sendet Gotify eine eigene Meldung:
+
+    XDCC Extractor: Passwort benötigt
+
+Dadurch lassen sich Passwortfehler besser von kaputten oder unvollständigen Archiven unterscheiden.
