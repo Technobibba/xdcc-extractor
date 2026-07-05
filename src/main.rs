@@ -72,7 +72,6 @@ fn main() -> anyhow::Result<()> {
     let notifications = notifications::Notifications::new(config.notifications.clone());
 
     info!("XDCC Extractor startet...");
-    info!("{:#?}", config);
     info!("Überwache {}", watch_root.display());
     info!("Root-Archive erlaubt: {}", allow_root_archives);
     info!("Output-Ordner: {}", output_directory.display());
