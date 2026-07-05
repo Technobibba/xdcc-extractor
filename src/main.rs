@@ -4,6 +4,7 @@ mod history;
 mod notifications;
 mod passwords;
 mod queue;
+mod status;
 
 use notify::{
     Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
@@ -41,6 +42,10 @@ struct RetrySettings {
 }
 
 fn main() -> anyhow::Result<()> {
+    if status::is_status_command() {
+        return status::run_from_args();
+    }
+
     tracing_subscriber::fmt().init();
 
     let config = config::Config::load("config.toml")?;
