@@ -867,3 +867,20 @@ docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
 Der Scan zeigt, welche Releases aktuell als Kandidaten erkannt würden.
 
 Er macht kein Cleanup und startet keine Entpackung.
+
+---
+
+## History-aware Scan
+
+Der Trocken-Scan zeigt zusätzlich den History-Zustand erkannter Kandidaten:
+
+```text
+[new]     noch nicht verarbeitet
+[done]    bereits erfolgreich verarbeitet
+[failed]  bereits fehlgeschlagen
+
+Beispiel:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+
+Der Scan entpackt nichts und löscht nichts.

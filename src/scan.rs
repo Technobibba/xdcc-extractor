@@ -1,10 +1,33 @@
-use crate::{config::Config, extractor};
+use crate::{config::Config, extractor, history::History};
 use anyhow::{Context, Result};
 use std::{
     collections::BTreeSet,
     env, fs,
     path::{Path, PathBuf},
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ScanCandidate {
+    path: PathBuf,
+    state: ScanState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScanState {
+    New,
+    Done,
+    Failed,
+}
+
+impl ScanState {
+    fn label(self) -> &'static str {
+        match self {
+            ScanState::New => "new",
+            ScanState::Done => "done",
+            ScanState::Failed => "failed",
+        }
+    }
+}
 
 pub fn is_scan_command() -> bool {
     env::args().any(|arg| arg == "--scan" || arg == "scan")
@@ -29,24 +52,73 @@ pub fn print_scan(config: &Config) -> Result<()> {
     println!("  {}", config.watch.allow_root_archives);
     println!();
 
-    let candidates = scan_candidates(config)?;
+    println!("History directory:");
+    println!("  {}", config.history.directory);
+    println!();
+
+    let candidates = scan_candidates_with_history(config)?;
 
     println!("Gefundene Kandidaten:");
     println!("  {}", candidates.len());
     println!();
 
+    let mut new_count = 0;
+    let mut done_count = 0;
+    let mut failed_count = 0;
+
     if candidates.is_empty() {
         println!("Keine verarbeitbaren Releases gefunden.");
     } else {
-        for candidate in candidates {
-            println!("  - {}", candidate.display());
+        for candidate in &candidates {
+            match candidate.state {
+                ScanState::New => new_count += 1,
+                ScanState::Done => done_count += 1,
+                ScanState::Failed => failed_count += 1,
+            }
+
+            println!(
+                "  [{:<6}] {}",
+                candidate.state.label(),
+                candidate.path.display()
+            );
         }
     }
 
     println!();
+    println!("Zusammenfassung:");
+    println!("  new: {}", new_count);
+    println!("  done: {}", done_count);
+    println!("  failed: {}", failed_count);
+    println!();
+
     println!("Scan abgeschlossen. Es wurde nichts entpackt und nichts gelöscht.");
 
     Ok(())
+}
+
+fn scan_candidates_with_history(config: &Config) -> Result<Vec<ScanCandidate>> {
+    let candidates = scan_candidates(config)?;
+    let history = History::new(Path::new(&config.history.directory))?;
+
+    let mut result = Vec::new();
+
+    for path in candidates {
+        let state = classify_candidate(&history, &path);
+        result.push(ScanCandidate { path, state });
+    }
+
+    Ok(result)
+}
+
+fn classify_candidate(history: &History, path: &Path) -> ScanState {
+    if history.is_done(path) {
+        return ScanState::Done;
+    }
+
+    match history.failed_attempts(path) {
+        Ok(attempts) if attempts > 0 => ScanState::Failed,
+        _ => ScanState::New,
+    }
 }
 
 fn scan_candidates(config: &Config) -> Result<Vec<PathBuf>> {
@@ -108,6 +180,7 @@ mod tests {
     #[test]
     fn scan_finds_folder_and_root_archive_candidates() {
         let dir = tempdir().expect("tempdir");
+        let history_dir = dir.path().join("history");
 
         let folder_release = dir.path().join("Folder.Release");
         fs::create_dir_all(&folder_release).expect("create folder release");
@@ -130,8 +203,12 @@ mod tests {
 [watch]
 directory="{}"
 allow_root_archives=true
+
+[history]
+directory="{}"
 "#,
-                dir.path().display()
+                dir.path().display(),
+                history_dir.display()
             ),
         )
         .expect("write config");
@@ -147,6 +224,7 @@ allow_root_archives=true
     #[test]
     fn scan_ignores_root_archives_when_disabled() {
         let dir = tempdir().expect("tempdir");
+        let history_dir = dir.path().join("history");
 
         let root_archive = dir.path().join("Root.Disabled.zip");
         fs::write(&root_archive, "zip").expect("write zip");
@@ -159,8 +237,12 @@ allow_root_archives=true
 [watch]
 directory="{}"
 allow_root_archives=false
+
+[history]
+directory="{}"
 "#,
-                dir.path().display()
+                dir.path().display(),
+                history_dir.display()
             ),
         )
         .expect("write config");
@@ -169,5 +251,66 @@ allow_root_archives=false
         let candidates = scan_candidates(&config).expect("scan");
 
         assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn scan_marks_candidates_as_new_done_or_failed() {
+        let dir = tempdir().expect("tempdir");
+        let history_dir = dir.path().join("history");
+
+        let new_archive = dir.path().join("New.Release.zip");
+        let done_archive = dir.path().join("Done.Release.zip");
+        let failed_archive = dir.path().join("Failed.Release.zip");
+
+        fs::write(&new_archive, "new").expect("write new");
+        fs::write(&done_archive, "done").expect("write done");
+        fs::write(&failed_archive, "failed").expect("write failed");
+
+        let config_file = dir.path().join("config.toml");
+        fs::write(
+            &config_file,
+            format!(
+                r#"
+[watch]
+directory="{}"
+allow_root_archives=true
+
+[history]
+directory="{}"
+"#,
+                dir.path().display(),
+                history_dir.display()
+            ),
+        )
+        .expect("write config");
+
+        let config = Config::load(&config_file).expect("load config");
+        let history = History::new(&history_dir).expect("history");
+
+        history.mark_done(&done_archive).expect("mark done");
+        history
+            .mark_failed(&failed_archive, "test error")
+            .expect("mark failed");
+
+        let candidates = scan_candidates_with_history(&config).expect("scan");
+
+        let new = candidates
+            .iter()
+            .find(|candidate| candidate.path == new_archive)
+            .expect("new candidate");
+
+        let done = candidates
+            .iter()
+            .find(|candidate| candidate.path == done_archive)
+            .expect("done candidate");
+
+        let failed = candidates
+            .iter()
+            .find(|candidate| candidate.path == failed_archive)
+            .expect("failed candidate");
+
+        assert_eq!(new.state, ScanState::New);
+        assert_eq!(done.state, ScanState::Done);
+        assert_eq!(failed.state, ScanState::Failed);
     }
 }
