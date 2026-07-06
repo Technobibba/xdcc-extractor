@@ -17,12 +17,14 @@ pub fn print_help() {
     println!("  --status                Status prüfen");
     println!("  --scan                  Download-Ordner trocken scannen");
     println!("  --clear-failed <PATH>   Failed-Marker für ein Release löschen");
+    println!("  --process <PATH>        Einzelnes Release manuell verarbeiten");
     println!("  --config, -c <PATH>     Config-Datei angeben");
     println!();
     println!("Examples:");
     println!("  xdcc-extractor --status");
     println!("  xdcc-extractor --scan");
     println!("  xdcc-extractor --clear-failed /downloads/Problem.Release.rar");
+    println!("  xdcc-extractor --process /downloads/Problem.Release.rar");
     println!("  xdcc-extractor --status --config config.docker.toml");
     println!("  xdcc-extractor --config /app/config.toml");
 }
@@ -298,6 +300,11 @@ pub fn validate_cli_args() -> Result<()> {
             "--status" | "status" => {}
             "--scan" | "scan" => {}
             "--clear-failed" | "clear-failed" => {
+                if args.next().is_none() {
+                    anyhow::bail!("Option {} benötigt einen Release-Pfad", arg);
+                }
+            }
+            "--process" | "process" => {
                 if args.next().is_none() {
                     anyhow::bail!("Option {} benötigt einen Release-Pfad", arg);
                 }

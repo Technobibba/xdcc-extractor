@@ -900,3 +900,35 @@ docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
 
+
+---
+
+## Einzelnes Release manuell verarbeiten
+
+Ein einzelnes Release kann gezielt verarbeitet werden:
+
+```bash
+xdcc-extractor --process /downloads/Problem.Release.rar
+```
+
+Im Docker-Container:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --process /downloads/Problem.Release.rar
+```
+
+Der Befehl nutzt dieselbe Logik wie der normale Worker:
+
+- Archivprüfung
+- Passwortliste
+- Entpackung
+- Validierung
+- Cleanup-Regeln
+- History `.done` / `.failed`
+- Gotify-Benachrichtigungen
+
+Wenn ein Release bereits einen `.failed`-Marker hat, zuerst zurücksetzen:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
+```
