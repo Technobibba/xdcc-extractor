@@ -959,3 +959,30 @@ Der Report zeigt:
 - ob Archive bei `dry_run=false` gelöscht würden
 
 Der Report macht keine Entpackung und kein Cleanup.
+
+---
+
+## Dry-Run Safety Check
+
+Vor einem möglichen Wechsel auf `dry_run=false` kann ein Sicherheitscheck ausgeführt werden:
+
+```bash
+xdcc-extractor --dry-run-check
+```
+
+Im Docker-Container:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-check
+```
+
+Der Check zeigt:
+
+- ob wichtige Ordner vorhanden sind
+- ob `delete_archives` und `dry_run` gesetzt sind
+- wie viele Kandidaten `new`, `done` oder `failed` sind
+- wie viele Cleanup-Dateien erkannt werden
+- ob unsichere Cleanup-Kandidaten gefunden wurden
+- ob ein Wechsel auf `dry_run=false` aktuell empfohlen wird
+
+Der Check macht keine Entpackung und löscht nichts.

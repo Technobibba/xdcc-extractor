@@ -1,4 +1,5 @@
 mod config;
+mod dry_run_check;
 mod dry_run_report;
 mod extractor;
 mod history;
@@ -78,6 +79,10 @@ fn main() -> anyhow::Result<()> {
 
     if dry_run_report::is_dry_run_report_command() {
         return dry_run_report::run_from_args();
+    }
+
+    if dry_run_check::is_dry_run_check_command() {
+        return dry_run_check::run_from_args();
     }
 
     tracing_subscriber::fmt().init();
