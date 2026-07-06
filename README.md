@@ -1008,3 +1008,15 @@ Beispiel:
 
 curl -s http://127.0.0.1:8099/api/scan
 
+
+---
+
+## WebUI Aktionen
+
+Das Web-Dashboard enthält read-only Aktionen:
+
+- Dashboard aktualisieren
+- Status API öffnen
+- Scan API öffnen
+
+Schreibaktionen wie `clear-failed`, `process` und Config-Bearbeitung werden später ergänzt.

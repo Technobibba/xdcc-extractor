@@ -255,6 +255,25 @@ footer {{
 code {{
   color: #cfd7e6;
 }}
+.actions {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}}
+.button {{
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #222735;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+}}
+.button:hover {{
+  background: #2b3142;
+}}
 </style>
 </head>
 <body>
@@ -267,6 +286,15 @@ code {{
       <h2>Worker</h2>
       <div class="value">läuft</div>
       <div class="small">WebUI erreichbar</div>
+    </section>
+
+    <section class="card">
+      <h2>Aktionen</h2>
+      <div class="actions">
+        <a class="button" href="/">Aktualisieren</a>
+        <a class="button" href="/api/status" target="_blank" rel="noopener">Status API</a>
+        <a class="button" href="/api/scan" target="_blank" rel="noopener">Scan API</a>
+      </div>
     </section>
 
     <section class="card">
@@ -317,7 +345,7 @@ code {{
   </div>
 
   <footer>
-    Read-only Dashboard. Aktionen wie Process, Clear-Failed und Config-Bearbeitung kommen später.
+    Read-only Dashboard. Schreibaktionen wie Process, Clear-Failed und Config-Bearbeitung kommen später.
   </footer>
 </main>
 </body>
