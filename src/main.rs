@@ -1,4 +1,5 @@
 mod config;
+mod dry_run_report;
 mod extractor;
 mod history;
 mod maintenance;
@@ -73,6 +74,10 @@ fn main() -> anyhow::Result<()> {
 
     if manual_process::is_process_command() {
         return manual_process::run_from_args();
+    }
+
+    if dry_run_report::is_dry_run_report_command() {
+        return dry_run_report::run_from_args();
     }
 
     tracing_subscriber::fmt().init();

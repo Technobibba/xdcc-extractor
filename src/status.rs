@@ -16,6 +16,7 @@ pub fn print_help() {
     println!("  --version, -V           Version anzeigen");
     println!("  --status                Status prüfen");
     println!("  --scan                  Download-Ordner trocken scannen");
+    println!("  --dry-run-report        Cleanup- und Zielordner-Plan anzeigen");
     println!("  --clear-failed <PATH>   Failed-Marker für ein Release löschen");
     println!("  --process <PATH>        Einzelnes Release manuell verarbeiten");
     println!("  --config, -c <PATH>     Config-Datei angeben");
@@ -23,6 +24,7 @@ pub fn print_help() {
     println!("Examples:");
     println!("  xdcc-extractor --status");
     println!("  xdcc-extractor --scan");
+    println!("  xdcc-extractor --dry-run-report");
     println!("  xdcc-extractor --clear-failed /downloads/Problem.Release.rar");
     println!("  xdcc-extractor --process /downloads/Problem.Release.rar");
     println!("  xdcc-extractor --status --config config.docker.toml");
@@ -299,6 +301,7 @@ pub fn validate_cli_args() -> Result<()> {
             "--version" | "-V" | "version" => {}
             "--status" | "status" => {}
             "--scan" | "scan" => {}
+            "--dry-run-report" | "dry-run-report" => {}
             "--clear-failed" | "clear-failed" => {
                 if args.next().is_none() {
                     anyhow::bail!("Option {} benötigt einen Release-Pfad", arg);

@@ -932,3 +932,30 @@ Wenn ein Release bereits einen `.failed`-Marker hat, zuerst zurücksetzen:
 ```bash
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
 ```
+
+---
+
+## Dry-Run-Report
+
+Der Worker kann anzeigen, was bei einer Verarbeitung passieren würde, ohne zu entpacken oder zu löschen:
+
+```bash
+xdcc-extractor --dry-run-report
+```
+
+Im Docker-Container:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-report
+```
+
+Der Report zeigt:
+
+- erkannte Kandidaten
+- History-Zustand
+- Startarchiv
+- Zielordner
+- Cleanup-Kandidaten
+- ob Archive bei `dry_run=false` gelöscht würden
+
+Der Report macht keine Entpackung und kein Cleanup.
