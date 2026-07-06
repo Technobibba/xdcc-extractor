@@ -133,3 +133,29 @@ Hinweis:
 
 --clear-failed löscht nur den .failed-Marker in der History.
 Das Release selbst und die Archivdateien bleiben unverändert.
+
+---
+
+## Dry-Run-False Teststatus
+
+Ein kontrollierter Test mit `dry_run=false` wurde erfolgreich durchgeführt.
+
+Getestet wurde:
+
+- Testarchiv im XDCC-Ordner
+- manuelle Verarbeitung über `--process`
+- `delete_archives=true`
+- `dry_run=false`
+- Archiv wurde nach erfolgreicher Verarbeitung gelöscht
+- entpackte Datei blieb erhalten
+- `.done` History wurde geschrieben
+- Produktiv-Config blieb auf `dry_run=true`
+
+Damit ist bestätigt, dass Cleanup grundsätzlich funktioniert.
+
+Für den echten Produktivbetrieb sollte vor dem Umschalten weiterhin geprüft werden:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-check
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-report
+

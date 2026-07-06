@@ -136,3 +136,21 @@ Aktuell:
 - Fehlerstatus `password_required`
 - Optional getrennte Meldung für Passwortfehler
 - Passwortliste über WebUI verwalten
+
+---
+
+## Dry-Run / Cleanup
+
+### Erledigt
+
+- Cleanup nur nach erfolgreicher Entpackung
+- Cleanup nur nach erfolgreicher Validierung
+- Dry-Run-Modus
+- Cleanup-Tests mit temporären Dateien
+- Dry-Run-Report
+- Dry-Run-Safety-Check
+- kontrollierter `dry_run=false` Test erfolgreich
+
+### Offen
+
+- Produktiventscheidung, wann `dry_run=false` dauerhaft aktiviert wird
