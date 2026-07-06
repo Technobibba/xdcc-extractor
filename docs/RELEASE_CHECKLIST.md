@@ -107,3 +107,29 @@ Danach wieder Status prüfen:
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
 docker compose logs --tail=100
 
+
+---
+
+## 11. Failed-Releases prüfen und optional zurücksetzen
+
+Vor oder nach einem Release kann der Scan genutzt werden, um fehlgeschlagene Releases zu sehen:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+
+Wenn ein Release absichtlich erneut versucht werden soll, z. B. nachdem ein Passwort ergänzt wurde:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
+
+Danach erneut prüfen:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+
+Erwartung:
+
+[failed] wird nach dem Zurücksetzen wieder zu [new]
+
+Hinweis:
+
+--clear-failed löscht nur den .failed-Marker in der History.
+Das Release selbst und die Archivdateien bleiben unverändert.

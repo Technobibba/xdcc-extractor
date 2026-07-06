@@ -884,3 +884,19 @@ Beispiel:
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
 
 Der Scan entpackt nichts und löscht nichts.
+
+---
+
+## Release-Checkliste und Failed-Reset
+
+Die Release-Checkliste enthält auch den Umgang mit fehlgeschlagenen Releases:
+
+```bash
+cat docs/RELEASE_CHECKLIST.md
+
+Nützlich nach Passwortänderungen:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+
