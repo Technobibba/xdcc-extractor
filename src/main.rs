@@ -42,6 +42,8 @@ struct RetrySettings {
 }
 
 fn main() -> anyhow::Result<()> {
+    status::validate_cli_args()?;
+
     if status::is_help_command() {
         status::print_help();
         return Ok(());

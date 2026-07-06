@@ -283,3 +283,26 @@ fn first_error_line(content: &str) -> Option<String> {
             value
         })
 }
+
+pub fn validate_cli_args() -> Result<()> {
+    let mut args = env::args().skip(1);
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--help" | "-h" | "help" => {}
+            "--version" | "-V" | "version" => {}
+            "--status" | "status" => {}
+            "--config" | "-c" => {
+                if args.next().is_none() {
+                    anyhow::bail!("Option {} benötigt einen Pfad zur Config-Datei", arg);
+                }
+            }
+            value if value.starts_with('-') => {
+                anyhow::bail!("Unbekannte Option: {}\nNutze --help für Hilfe.", value);
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
