@@ -10,6 +10,7 @@ mod passwords;
 mod queue;
 mod scan;
 mod status;
+mod web;
 
 use notify::{
     Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
@@ -130,6 +131,7 @@ fn main() -> anyhow::Result<()> {
     info!("Retry max_delay={}s", retry.max_delay);
     info!("Startup-Scan aktiviert: {}", startup_scan_existing);
     info!("Gotify aktiviert: {}", notifications.gotify_enabled());
+    web::start(config.clone())?;
 
     let (tx, rx) = channel();
 

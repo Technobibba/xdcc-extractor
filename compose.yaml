@@ -4,6 +4,9 @@ services:
     container_name: xdcc-extractor
     restart: unless-stopped
 
+    ports:
+      - "8099:8099"
+
     environment:
       TZ: Europe/Berlin
 

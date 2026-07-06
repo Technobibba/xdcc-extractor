@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::{fs, path::Path};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub watch: WatchConfig,
 
@@ -23,6 +23,9 @@ pub struct Config {
 
     #[serde(default)]
     pub notifications: NotificationConfig,
+
+    #[serde(default)]
+    pub web: WebConfig,
 }
 
 impl Config {
@@ -31,7 +34,7 @@ impl Config {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct WatchConfig {
     pub directory: String,
 
@@ -42,7 +45,7 @@ pub struct WatchConfig {
     pub allow_root_archives: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ExtractConfig {
     #[serde(default = "default_delete_archives")]
     pub delete_archives: bool,
@@ -57,19 +60,19 @@ pub struct ExtractConfig {
     pub password_file: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct OutputConfig {
     #[serde(default = "default_output_directory")]
     pub directory: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct HistoryConfig {
     #[serde(default = "default_history_directory")]
     pub directory: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct RetryConfig {
     #[serde(default = "default_retry_base_delay")]
     pub base_delay: u64,
@@ -78,10 +81,19 @@ pub struct RetryConfig {
     pub max_delay: u64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct StartupConfig {
     #[serde(default)]
     pub scan_existing: bool,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct WebConfig {
+    #[serde(default)]
+    pub enabled: bool,
+
+    #[serde(default = "default_web_bind")]
+    pub bind: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -160,6 +172,15 @@ impl Default for StartupConfig {
     fn default() -> Self {
         Self {
             scan_existing: false,
+        }
+    }
+}
+
+impl Default for WebConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bind: default_web_bind(),
         }
     }
 }
@@ -434,4 +455,8 @@ mod debug_redaction_tests {
         assert!(debug.contains("<redacted>"));
         assert!(!debug.contains("super-secret-token"));
     }
+}
+
+fn default_web_bind() -> String {
+    "0.0.0.0:8099".to_string()
 }
