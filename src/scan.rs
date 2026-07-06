@@ -1,26 +1,27 @@
 use crate::{config::Config, extractor, history::History};
 use anyhow::{Context, Result};
+use serde::Serialize;
 use std::{
     collections::BTreeSet,
     env, fs,
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct ScanCandidate {
-    path: PathBuf,
-    state: ScanState,
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ScanCandidate {
+    pub path: PathBuf,
+    pub state: ScanState,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ScanState {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum ScanState {
     New,
     Done,
     Failed,
 }
 
 impl ScanState {
-    fn label(self) -> &'static str {
+    pub fn label(self) -> &'static str {
         match self {
             ScanState::New => "new",
             ScanState::Done => "done",
@@ -96,7 +97,7 @@ pub fn print_scan(config: &Config) -> Result<()> {
     Ok(())
 }
 
-fn scan_candidates_with_history(config: &Config) -> Result<Vec<ScanCandidate>> {
+pub fn scan_candidates_with_history(config: &Config) -> Result<Vec<ScanCandidate>> {
     let candidates = scan_candidates(config)?;
     let history = History::new(Path::new(&config.history.directory))?;
 

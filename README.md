@@ -986,3 +986,25 @@ Der Check zeigt:
 - ob ein Wechsel auf `dry_run=false` aktuell empfohlen wird
 
 Der Check macht keine Entpackung und löscht nichts.
+
+---
+
+## WebUI Scan
+
+Das Web-Dashboard zeigt erkannte Kandidaten direkt auf der Startseite.
+
+Angezeigt wird:
+
+```text
+new
+done
+failed
+
+Zusätzlich gibt es eine JSON-API:
+
+/api/scan
+
+Beispiel:
+
+curl -s http://127.0.0.1:8099/api/scan
+

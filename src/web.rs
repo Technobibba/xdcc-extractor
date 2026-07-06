@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::{config::Config, scan};
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
@@ -42,6 +42,7 @@ pub fn start(config: Config) -> Result<()> {
                 .route("/", get(index))
                 .route("/health", get(health))
                 .route("/api/status", get(api_status))
+                .route("/api/scan", get(api_scan))
                 .with_state(state);
 
             let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -87,8 +88,35 @@ async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Valu
     }))
 }
 
+async fn api_scan(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    match scan::scan_candidates_with_history(&state.config) {
+        Ok(candidates) => {
+            let items = candidates
+                .iter()
+                .map(|candidate| {
+                    json!({
+                        "path": candidate.path.display().to_string(),
+                        "state": candidate.state.label(),
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            Json(json!({
+                "ok": true,
+                "count": items.len(),
+                "candidates": items,
+            }))
+        }
+        Err(err) => Json(json!({
+            "ok": false,
+            "error": format!("{:?}", err),
+        })),
+    }
+}
+
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let history = history_counts(&state.config.history.directory);
+    let scan_html = scan_summary_html(&state.config);
 
     let dry_run_badge = if state.config.extract.dry_run {
         r#"<span class="badge ok">aktiv</span>"#
@@ -119,6 +147,7 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
   --border: #2a2f3a;
   --ok: #25c26e;
   --warn: #f0a020;
+  --bad: #ff5c5c;
 }}
 body {{
   margin: 0;
@@ -127,7 +156,7 @@ body {{
   color: var(--text);
 }}
 main {{
-  max-width: 980px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 32px 20px;
 }}
@@ -149,6 +178,9 @@ h1 {{
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
+}}
+.card.wide {{
+  grid-column: 1 / -1;
 }}
 .card h2 {{
   margin: 0 0 12px;
@@ -181,9 +213,39 @@ h1 {{
   background: rgba(240, 160, 32, .15);
   color: var(--warn);
 }}
+.badge.bad {{
+  background: rgba(255, 92, 92, .15);
+  color: var(--bad);
+}}
 .badge.muted {{
   background: rgba(154, 164, 178, .12);
   color: var(--muted);
+}}
+.scan-summary {{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}}
+.scan-list {{
+  display: grid;
+  gap: 8px;
+}}
+.scan-row {{
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}}
+.scan-path {{
+  color: var(--text);
+  font-size: 14px;
+  word-break: break-all;
+}}
+.error {{
+  color: var(--bad);
 }}
 footer {{
   margin-top: 28px;
@@ -244,12 +306,18 @@ code {{
     <section class="card">
       <h2>API</h2>
       <div class="small"><code>/api/status</code></div>
+      <div class="small"><code>/api/scan</code></div>
       <div class="small"><code>/health</code></div>
+    </section>
+
+    <section class="card wide">
+      <h2>Scan</h2>
+      {scan_html}
     </section>
   </div>
 
   <footer>
-    Read-only Dashboard. Aktionen wie Scan, Process und Config-Bearbeitung kommen später.
+    Read-only Dashboard. Aktionen wie Process, Clear-Failed und Config-Bearbeitung kommen später.
   </footer>
 </main>
 </body>
@@ -264,9 +332,82 @@ code {{
         watch_dir = escape(&state.config.watch.directory),
         output_dir = escape(&state.config.output.directory),
         allow_root_archives = state.config.watch.allow_root_archives,
+        scan_html = scan_html,
     );
 
     Html(html)
+}
+
+fn scan_summary_html(config: &Config) -> String {
+    let candidates = match scan::scan_candidates_with_history(config) {
+        Ok(candidates) => candidates,
+        Err(err) => {
+            return format!(
+                r#"<div class="error">Scan-Fehler: {}</div>"#,
+                escape(&format!("{:?}", err))
+            );
+        }
+    };
+
+    let mut new_count = 0;
+    let mut done_count = 0;
+    let mut failed_count = 0;
+
+    for candidate in &candidates {
+        match candidate.state.label() {
+            "new" => new_count += 1,
+            "done" => done_count += 1,
+            "failed" => failed_count += 1,
+            _ => {}
+        }
+    }
+
+    let mut html = format!(
+        r#"<div class="scan-summary">
+<span class="badge ok">new: {}</span>
+<span class="badge muted">done: {}</span>
+<span class="badge bad">failed: {}</span>
+<span class="badge muted">gesamt: {}</span>
+</div>"#,
+        new_count,
+        done_count,
+        failed_count,
+        candidates.len()
+    );
+
+    if candidates.is_empty() {
+        html.push_str(r#"<div class="small">Keine Kandidaten gefunden.</div>"#);
+        return html;
+    }
+
+    html.push_str(r#"<div class="scan-list">"#);
+
+    for candidate in candidates.iter().take(25) {
+        let label = candidate.state.label();
+        let class = match label {
+            "new" => "ok",
+            "done" => "muted",
+            "failed" => "bad",
+            _ => "muted",
+        };
+
+        html.push_str(&format!(
+            r#"<div class="scan-row"><span class="badge {}">{}</span><span class="scan-path">{}</span></div>"#,
+            class,
+            escape(label),
+            escape(&candidate.path.display().to_string())
+        ));
+    }
+
+    if candidates.len() > 25 {
+        html.push_str(&format!(
+            r#"<div class="small">Weitere {} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>"#,
+            candidates.len() - 25
+        ));
+    }
+
+    html.push_str("</div>");
+    html
 }
 
 fn history_counts(history_dir: &str) -> (usize, usize) {
