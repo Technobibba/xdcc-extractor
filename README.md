@@ -826,3 +826,24 @@ Verfügbare Optionen:
 --status                Status prüfen
 --config, -c <PATH>     Config-Datei angeben
 ```
+
+---
+
+## Release-Checkliste
+
+Vor einem neuen Release oder größeren Update:
+
+```bash
+cat docs/RELEASE_CHECKLIST.md
+
+Die Checkliste enthält:
+
+Git- und Secret-Prüfung
+Rust-Tests
+Docker-Build
+Container-Healthcheck
+Statusprüfung
+Gotify-Test
+Testarchiv
+Tagging
+Rollback-Hinweise
