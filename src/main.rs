@@ -53,7 +53,8 @@ fn main() -> anyhow::Result<()> {
 
     tracing_subscriber::fmt().init();
 
-    let config = config::Config::load("config.toml")?;
+    let config_path = status::config_path_from_args();
+    let config = config::Config::load(&config_path)?;
 
     let watch_path = config.watch.directory.clone();
     let watch_root = PathBuf::from(&watch_path);
@@ -77,6 +78,7 @@ fn main() -> anyhow::Result<()> {
     let notifications = notifications::Notifications::new(config.notifications.clone());
 
     info!("XDCC Extractor startet...");
+    info!("Config-Datei: {}", config_path);
     info!("Überwache {}", watch_root.display());
     info!("Root-Archive erlaubt: {}", allow_root_archives);
     info!("Output-Ordner: {}", output_directory.display());

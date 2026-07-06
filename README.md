@@ -779,3 +779,25 @@ Der Status zeigt die Version ebenfalls an:
 
 docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
 
+
+---
+
+## Config-Pfad explizit angeben
+
+Der Worker nutzt standardmäßig:
+
+```text
+config.toml
+
+Alternativ kann eine Config explizit angegeben werden:
+
+xdcc-extractor --config /pfad/zur/config.toml
+
+Beispiel lokal nach einem Build:
+
+./target/debug/xdcc-extractor --config config.docker.toml
+
+Auch der Status-Befehl unterstützt --config:
+
+./target/debug/xdcc-extractor --status --config config.docker.toml
+

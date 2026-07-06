@@ -18,7 +18,7 @@ pub fn run_from_args() -> Result<()> {
     print_status(&config_path)
 }
 
-fn config_path_from_args() -> String {
+pub fn config_path_from_args() -> String {
     let mut args = env::args().skip(1);
     let mut config_path = env::var("XDCC_CONFIG").unwrap_or_else(|_| "config.toml".to_string());
 
