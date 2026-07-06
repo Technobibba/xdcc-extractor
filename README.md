@@ -847,3 +847,23 @@ Gotify-Test
 Testarchiv
 Tagging
 Rollback-Hinweise
+
+---
+
+## Trocken-Scan
+
+Der Worker kann den Download-Ordner scannen, ohne etwas zu entpacken oder zu löschen:
+
+```bash
+xdcc-extractor --scan
+```
+
+Im Docker-Container:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
+```
+
+Der Scan zeigt, welche Releases aktuell als Kandidaten erkannt würden.
+
+Er macht kein Cleanup und startet keine Entpackung.

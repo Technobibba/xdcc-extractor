@@ -15,10 +15,12 @@ pub fn print_help() {
     println!("  --help, -h              Hilfe anzeigen");
     println!("  --version, -V           Version anzeigen");
     println!("  --status                Status prüfen");
+    println!("  --scan                  Download-Ordner trocken scannen");
     println!("  --config, -c <PATH>     Config-Datei angeben");
     println!();
     println!("Examples:");
     println!("  xdcc-extractor --status");
+    println!("  xdcc-extractor --scan");
     println!("  xdcc-extractor --status --config config.docker.toml");
     println!("  xdcc-extractor --config /app/config.toml");
 }
@@ -292,6 +294,7 @@ pub fn validate_cli_args() -> Result<()> {
             "--help" | "-h" | "help" => {}
             "--version" | "-V" | "version" => {}
             "--status" | "status" => {}
+            "--scan" | "scan" => {}
             "--config" | "-c" => {
                 if args.next().is_none() {
                     anyhow::bail!("Option {} benötigt einen Pfad zur Config-Datei", arg);

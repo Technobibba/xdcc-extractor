@@ -4,6 +4,7 @@ mod history;
 mod notifications;
 mod passwords;
 mod queue;
+mod scan;
 mod status;
 
 use notify::{
@@ -56,6 +57,10 @@ fn main() -> anyhow::Result<()> {
 
     if status::is_status_command() {
         return status::run_from_args();
+    }
+
+    if scan::is_scan_command() {
+        return scan::run_from_args();
     }
 
     tracing_subscriber::fmt().init();
