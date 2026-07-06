@@ -42,6 +42,11 @@ struct RetrySettings {
 }
 
 fn main() -> anyhow::Result<()> {
+    if status::is_help_command() {
+        status::print_help();
+        return Ok(());
+    }
+
     if status::is_version_command() {
         status::print_version();
         return Ok(());

@@ -801,3 +801,28 @@ Auch der Status-Befehl unterstützt --config:
 
 ./target/debug/xdcc-extractor --status --config config.docker.toml
 
+
+---
+
+## Hilfe anzeigen
+
+Der Worker hat eine kleine CLI-Hilfe:
+
+```bash
+xdcc-extractor --help
+```
+
+Im Docker-Container:
+
+```bash
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --help
+```
+
+Verfügbare Optionen:
+
+```text
+--help, -h              Hilfe anzeigen
+--version, -V           Version anzeigen
+--status                Status prüfen
+--config, -c <PATH>     Config-Datei angeben
+```

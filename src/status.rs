@@ -1,6 +1,28 @@
 use anyhow::{Context, Result};
 use std::{env, fs, path::Path};
 
+pub fn is_help_command() -> bool {
+    env::args().any(|arg| arg == "--help" || arg == "-h" || arg == "help")
+}
+
+pub fn print_help() {
+    println!("xdcc-extractor {}", env!("CARGO_PKG_VERSION"));
+    println!();
+    println!("Usage:");
+    println!("  xdcc-extractor [OPTIONS]");
+    println!();
+    println!("Options:");
+    println!("  --help, -h              Hilfe anzeigen");
+    println!("  --version, -V           Version anzeigen");
+    println!("  --status                Status prüfen");
+    println!("  --config, -c <PATH>     Config-Datei angeben");
+    println!();
+    println!("Examples:");
+    println!("  xdcc-extractor --status");
+    println!("  xdcc-extractor --status --config config.docker.toml");
+    println!("  xdcc-extractor --config /app/config.toml");
+}
+
 pub fn is_version_command() -> bool {
     env::args().any(|arg| arg == "--version" || arg == "-V" || arg == "version")
 }
