@@ -1,6 +1,14 @@
 use anyhow::{Context, Result};
 use std::{env, fs, path::Path};
 
+pub fn is_version_command() -> bool {
+    env::args().any(|arg| arg == "--version" || arg == "-V" || arg == "version")
+}
+
+pub fn print_version() {
+    println!("xdcc-extractor {}", env!("CARGO_PKG_VERSION"));
+}
+
 pub fn is_status_command() -> bool {
     env::args().any(|arg| arg == "--status" || arg == "status")
 }
@@ -28,6 +36,10 @@ fn config_path_from_args() -> String {
 
 pub fn print_status(config_path: &str) -> Result<()> {
     println!("== XDCC Extractor Status ==");
+    println!();
+
+    println!("Version:");
+    println!("  {}", env!("CARGO_PKG_VERSION"));
     println!();
 
     println!("Binary:");

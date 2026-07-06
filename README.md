@@ -761,3 +761,21 @@ Bei `password_required` sendet Gotify eine eigene Meldung:
     XDCC Extractor: Passwort benötigt
 
 Dadurch lassen sich Passwortfehler besser von kaputten oder unvollständigen Archiven unterscheiden.
+
+---
+
+## Version anzeigen
+
+Lokal nach einem Build:
+
+```bash
+./target/debug/xdcc-extractor --Version
+
+Im Docker-Container:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --version
+
+Der Status zeigt die Version ebenfalls an:
+
+docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
+
