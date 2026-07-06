@@ -1,6 +1,7 @@
 mod config;
 mod extractor;
 mod history;
+mod maintenance;
 mod notifications;
 mod passwords;
 mod queue;
@@ -44,6 +45,7 @@ struct RetrySettings {
 
 fn main() -> anyhow::Result<()> {
     status::validate_cli_args()?;
+    maintenance::validate_clear_failed_args()?;
 
     if status::is_help_command() {
         status::print_help();
@@ -61,6 +63,10 @@ fn main() -> anyhow::Result<()> {
 
     if scan::is_scan_command() {
         return scan::run_from_args();
+    }
+
+    if maintenance::is_clear_failed_command() {
+        return maintenance::run_clear_failed_from_args();
     }
 
     tracing_subscriber::fmt().init();
