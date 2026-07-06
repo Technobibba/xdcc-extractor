@@ -43,6 +43,7 @@ pub fn start(config: Config) -> Result<()> {
                 .route("/health", get(health))
                 .route("/api/status", get(api_status))
                 .route("/api/scan", get(api_scan))
+                .route("/assets/app.js", get(app_js))
                 .with_state(state);
 
             let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -66,6 +67,111 @@ pub fn start(config: Config) -> Result<()> {
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn app_js() -> impl IntoResponse {
+    (
+        [("content-type", "application/javascript; charset=utf-8")],
+        r#"
+document.addEventListener('DOMContentLoaded', () => {
+  const button = document.getElementById('refresh-scan');
+  const target = document.getElementById('scan-content');
+
+  if (!button || !target) {
+    return;
+  }
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    const oldText = button.textContent;
+    button.textContent = 'Aktualisiere...';
+
+    try {
+      const response = await fetch('/api/scan', { cache: 'no-store' });
+      const data = await response.json();
+
+      target.innerHTML = renderScan(data);
+    } catch (error) {
+      target.innerHTML = `<div class="error">Scan konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
+    } finally {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  });
+});
+
+function renderScan(data) {
+  if (!data.ok) {
+    return `<div class="error">Scan-Fehler: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
+  }
+
+  const candidates = data.candidates || [];
+  const counts = {
+    new: 0,
+    done: 0,
+    failed: 0
+  };
+
+  for (const candidate of candidates) {
+    if (candidate.state === 'new') counts.new += 1;
+    if (candidate.state === 'done') counts.done += 1;
+    if (candidate.state === 'failed') counts.failed += 1;
+  }
+
+  let html = `
+    <div class="scan-summary">
+      <span class="badge ok">new: ${counts.new}</span>
+      <span class="badge muted">done: ${counts.done}</span>
+      <span class="badge bad">failed: ${counts.failed}</span>
+      <span class="badge muted">gesamt: ${candidates.length}</span>
+    </div>
+    <div class="small">Aktualisiert: ${escapeHtml(new Date().toLocaleTimeString())}</div>
+  `;
+
+  if (candidates.length === 0) {
+    html += `<div class="small">Keine Kandidaten gefunden.</div>`;
+    return html;
+  }
+
+  html += `<div class="scan-list">`;
+
+  for (const candidate of candidates.slice(0, 25)) {
+    const state = candidate.state || 'unknown';
+    const cssClass = stateClass(state);
+
+    html += `
+      <div class="scan-row">
+        <span class="badge ${cssClass}">${escapeHtml(state)}</span>
+        <span class="scan-path">${escapeHtml(candidate.path || '')}</span>
+      </div>
+    `;
+  }
+
+  if (candidates.length > 25) {
+    html += `<div class="small">Weitere ${candidates.length - 25} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>`;
+  }
+
+  html += `</div>`;
+
+  return html;
+}
+
+function stateClass(state) {
+  if (state === 'new') return 'ok';
+  if (state === 'failed') return 'bad';
+  return 'muted';
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+"#,
+    )
 }
 
 async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
@@ -247,6 +353,25 @@ h1 {{
 .error {{
   color: var(--bad);
 }}
+button.button {{
+  cursor: pointer;
+  font-family: inherit;
+}}
+button.button:disabled {{
+  opacity: .65;
+  cursor: wait;
+}}
+.card-head {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}}
+.card-head h2 {{
+  margin: 0;
+}}
+
 footer {{
   margin-top: 28px;
   color: var(--muted);
@@ -339,8 +464,13 @@ code {{
     </section>
 
     <section class="card wide">
-      <h2>Scan</h2>
-      {scan_html}
+      <div class="card-head">
+        <h2>Scan</h2>
+        <button id="refresh-scan" class="button" type="button">Scan aktualisieren</button>
+      </div>
+      <div id="scan-content">
+        {scan_html}
+      </div>
     </section>
   </div>
 
@@ -348,6 +478,7 @@ code {{
     Read-only Dashboard. Schreibaktionen wie Process, Clear-Failed und Config-Bearbeitung kommen später.
   </footer>
 </main>
+<script src="/assets/app.js"></script>
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),

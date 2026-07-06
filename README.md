@@ -1020,3 +1020,20 @@ Das Web-Dashboard enthält read-only Aktionen:
 - Scan API öffnen
 
 Schreibaktionen wie `clear-failed`, `process` und Config-Bearbeitung werden später ergänzt.
+
+---
+
+## WebUI Scan ohne Seitenreload
+
+Der Scan-Bereich im Web-Dashboard kann ohne komplettes Neuladen aktualisiert werden.
+
+Button:
+
+```text
+Scan aktualisieren
+
+Die WebUI ruft dafür intern die JSON-API auf:
+
+/api/scan
+
+Das ist weiterhin read-only und führt keine Verarbeitung aus.
