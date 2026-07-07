@@ -576,11 +576,18 @@ input[type="number"],
 input[type="text"],
 input[type="password"] {{
   width: 100%;
+  min-width: 0;
   padding: 10px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #11131a;
   color: var(--text);
+}}
+.field {{
+  min-width: 0;
+}}
+.field.full {{
+  grid-column: 1 / -1;
 }}
 .check {{
   display: flex;
@@ -642,7 +649,7 @@ code {{
       <h2>Watch</h2>
       <div class="grid">
         <div>
-          <label for="stable_after">stable_after Sekunden</label>
+          <label for="stable_after">Wartezeit bis Verarbeitung in Sekunden</label>
           <input id="stable_after" name="stable_after" type="number" min="1" value="{stable_after}">
         </div>
       </div>
@@ -661,11 +668,11 @@ code {{
       <h2>Retry / Startup</h2>
       <div class="grid">
         <div>
-          <label for="retry_base_delay">base_delay Sekunden</label>
+          <label for="retry_base_delay">Erste Wiederholung nach Sekunden</label>
           <input id="retry_base_delay" name="retry_base_delay" type="number" min="1" value="{retry_base_delay}">
         </div>
         <div>
-          <label for="retry_max_delay">max_delay Sekunden</label>
+          <label for="retry_max_delay">Maximale Wiederholungs-Wartezeit in Sekunden</label>
           <input id="retry_max_delay" name="retry_max_delay" type="number" min="1" value="{retry_max_delay}">
         </div>
       </div>
@@ -676,28 +683,28 @@ code {{
       <h2>Gotify</h2>
       <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
       <div class="grid">
-        <div>
+        <div class="field full">
           <label for="gotify_url">Gotify URL</label>
           <input id="gotify_url" name="gotify_url" type="text" value="{gotify_url}" autocomplete="off">
         </div>
-        <div>
+        <div class="field full">
           <label for="gotify_token">Gotify Token neu setzen</label>
-          <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = behalten" autocomplete="new-password">
+          <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
         </div>
       </div>
       <div class="small">Token wird nie angezeigt. Ein leerer Token-Wert lässt den bestehenden Token unverändert.</div>
 
       <div class="grid">
         <div>
-          <label for="gotify_priority_success">priority_success</label>
+          <label for="gotify_priority_success">Priorität bei Erfolg</label>
           <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
         </div>
         <div>
-          <label for="gotify_priority_error">priority_error</label>
+          <label for="gotify_priority_error">Priorität bei Fehler</label>
           <input id="gotify_priority_error" name="gotify_priority_error" type="number" value="{gotify_priority_error}">
         </div>
         <div>
-          <label for="gotify_notify_after_attempts">notify_after_attempts</label>
+          <label for="gotify_notify_after_attempts">Fehler melden nach Versuchen</label>
           <input id="gotify_notify_after_attempts" name="gotify_notify_after_attempts" type="number" min="1" value="{gotify_notify_after_attempts}">
         </div>
       </div>
@@ -1597,50 +1604,50 @@ footer {{
   <div class="grid">
     <section class="card">
       <h2>Watch</h2>
-      <div class="row"><div class="key">directory</div><div class="value"><code>{watch_dir}</code></div></div>
-      <div class="row"><div class="key">stable_after</div><div class="value">{stable_after}s</div></div>
-      <div class="row"><div class="key">allow_root_archives</div><div class="value">{allow_root_archives}</div></div>
+      <div class="row"><div class="key">Überwachter Ordner</div><div class="value"><code>{watch_dir}</code></div></div>
+      <div class="row"><div class="key">Wartezeit bis Verarbeitung</div><div class="value">{stable_after}s</div></div>
+      <div class="row"><div class="key">Root-Archive erlauben</div><div class="value">{allow_root_archives}</div></div>
     </section>
 
     <section class="card">
       <h2>Extract</h2>
-      <div class="row"><div class="key">dry_run</div><div class="value">{dry_run}</div></div>
-      <div class="row"><div class="key">delete_archives</div><div class="value">{delete_archives}</div></div>
-      <div class="row"><div class="key">keep_failed</div><div class="value">{keep_failed}</div></div>
-      <div class="row"><div class="key">password_file</div><div class="value">{password_file_configured} <span class="key">Pfad wird angezeigt, Inhalt nicht</span></div></div>
-      <div class="row"><div class="key">password_file_path</div><div class="value"><code>{password_file}</code></div></div>
+      <div class="row"><div class="key">Testmodus</div><div class="value">{dry_run}</div></div>
+      <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
+      <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
+      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt wird nicht angezeigt</span></div></div>
+      <div class="row"><div class="key">Pfad zur Passwortliste</div><div class="value"><code>{password_file}</code></div></div>
     </section>
 
     <section class="card">
       <h2>Output / History</h2>
-      <div class="row"><div class="key">output.directory</div><div class="value"><code>{output_dir}</code></div></div>
-      <div class="row"><div class="key">history.directory</div><div class="value"><code>{history_dir}</code></div></div>
+      <div class="row"><div class="key">Ausgabeordner</div><div class="value"><code>{output_dir}</code></div></div>
+      <div class="row"><div class="key">History-Ordner</div><div class="value"><code>{history_dir}</code></div></div>
     </section>
 
     <section class="card">
       <h2>Retry / Startup</h2>
-      <div class="row"><div class="key">base_delay</div><div class="value">{base_delay}s</div></div>
-      <div class="row"><div class="key">max_delay</div><div class="value">{max_delay}s</div></div>
-      <div class="row"><div class="key">scan_existing</div><div class="value">{startup_scan}</div></div>
+      <div class="row"><div class="key">Erste Wiederholung nach</div><div class="value">{base_delay}s</div></div>
+      <div class="row"><div class="key">Maximale Wiederholungs-Wartezeit</div><div class="value">{max_delay}s</div></div>
+      <div class="row"><div class="key">Vorhandene Releases beim Start scannen</div><div class="value">{startup_scan}</div></div>
     </section>
 
     <section class="card">
       <h2>Gotify</h2>
-      <div class="row"><div class="key">enabled</div><div class="value">{gotify_enabled}</div></div>
-      <div class="row"><div class="key">url</div><div class="value"><code>{gotify_url}</code></div></div>
-      <div class="row"><div class="key">token_configured</div><div class="value">{token_configured}</div></div>
-      <div class="row"><div class="key">priority_success</div><div class="value">{priority_success}</div></div>
-      <div class="row"><div class="key">priority_error</div><div class="value">{priority_error}</div></div>
-      <div class="row"><div class="key">notify_on_success</div><div class="value">{notify_on_success}</div></div>
-      <div class="row"><div class="key">notify_on_error</div><div class="value">{notify_on_error}</div></div>
-      <div class="row"><div class="key">notify_on_every_error</div><div class="value">{notify_on_every_error}</div></div>
-      <div class="row"><div class="key">notify_after_attempts</div><div class="value">{notify_after_attempts}</div></div>
+      <div class="row"><div class="key">Gotify aktiv</div><div class="value">{gotify_enabled}</div></div>
+      <div class="row"><div class="key">Gotify URL</div><div class="value"><code>{gotify_url}</code></div></div>
+      <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
+      <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
+      <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
+      <div class="row"><div class="key">Erfolg melden</div><div class="value">{notify_on_success}</div></div>
+      <div class="row"><div class="key">Fehler melden</div><div class="value">{notify_on_error}</div></div>
+      <div class="row"><div class="key">Jeden Fehler melden</div><div class="value">{notify_on_every_error}</div></div>
+      <div class="row"><div class="key">Fehler melden nach Versuchen</div><div class="value">{notify_after_attempts}</div></div>
     </section>
 
     <section class="card">
       <h2>WebUI</h2>
       <div class="row"><div class="key">enabled</div><div class="value">{web_enabled}</div></div>
-      <div class="row"><div class="key">bind</div><div class="value"><code>{web_bind}</code></div></div>
+      <div class="row"><div class="key">Adresse / Port</div><div class="value"><code>{web_bind}</code></div></div>
     </section>
 
     <section class="card wide">
