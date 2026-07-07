@@ -18,3 +18,4 @@ ureq = { version = "2", features = ["json"] }
 serde_json = "1"
 tempfile = "3"
 axum = "0.8"
+base64 = "0.22"

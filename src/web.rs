@@ -2,10 +2,13 @@ use crate::{config::Config, history::History, log_buffer, manual_process, scan};
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::State,
-    response::{Html, IntoResponse},
+    extract::{Request, State},
+    http::{StatusCode, header},
+    middleware::{self, Next},
+    response::{Html, IntoResponse, Response},
     routing::{get, post},
 };
+use base64::Engine as _;
 use serde::Deserialize;
 use serde_json::json;
 use std::{
@@ -50,11 +53,10 @@ pub fn start(config: Config) -> Result<()> {
         runtime.block_on(async move {
             let state = Arc::new(AppState { config });
 
-            let app = Router::new()
+            let protected_routes = Router::new()
                 .route("/", get(index))
                 .route("/settings", get(settings))
                 .route("/logs", get(logs))
-                .route("/health", get(health))
                 .route("/api/status", get(api_status))
                 .route("/api/config", get(api_config))
                 .route("/api/scan", get(api_scan))
@@ -63,6 +65,11 @@ pub fn start(config: Config) -> Result<()> {
                 .route("/api/clear-failed", post(api_clear_failed))
                 .route("/api/process", post(api_process))
                 .route("/assets/app.js", get(app_js))
+                .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
+
+            let app = Router::new()
+                .route("/health", get(health))
+                .merge(protected_routes)
                 .with_state(state);
 
             let listener = match tokio::net::TcpListener::bind(addr).await {
@@ -82,6 +89,59 @@ pub fn start(config: Config) -> Result<()> {
     });
 
     Ok(())
+}
+
+async fn require_auth(
+    State(_state): State<Arc<AppState>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    let expected_password = match std::env::var("XDCC_WEB_AUTH_PASSWORD") {
+        Ok(value) if !value.is_empty() => value,
+        _ => {
+            warn!("WebUI Auth ist nicht konfiguriert: XDCC_WEB_AUTH_PASSWORD fehlt");
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                "WebUI Auth ist nicht konfiguriert.",
+            )
+                .into_response();
+        }
+    };
+
+    let expected_user = std::env::var("XDCC_WEB_AUTH_USER").unwrap_or_else(|_| "admin".to_string());
+
+    let authorized = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.strip_prefix("Basic "))
+        .and_then(|encoded| {
+            base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .ok()
+        })
+        .and_then(|decoded| String::from_utf8(decoded).ok())
+        .and_then(|decoded| {
+            decoded
+                .split_once(':')
+                .map(|(user, password)| (user.to_string(), password.to_string()))
+        })
+        .map(|(user, password)| user == expected_user && password == expected_password)
+        .unwrap_or(false);
+
+    if authorized {
+        next.run(request).await
+    } else {
+        let mut response =
+            (StatusCode::UNAUTHORIZED, "Authentifizierung erforderlich.").into_response();
+
+        response.headers_mut().insert(
+            header::WWW_AUTHENTICATE,
+            header::HeaderValue::from_static(r#"Basic realm="XDCC Extractor""#),
+        );
+
+        response
+    }
 }
 
 async fn health() -> &'static str {

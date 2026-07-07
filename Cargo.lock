@@ -1508,6 +1508,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "axum",
+ "base64",
  "notify",
  "regex",
  "serde",

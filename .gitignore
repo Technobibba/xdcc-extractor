@@ -7,3 +7,4 @@ logs/
 config.docker.toml
 config/
 config/passwords.txt
+.env

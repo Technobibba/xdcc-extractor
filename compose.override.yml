@@ -1,0 +1,4 @@
+services:
+  xdcc-extractor:
+    env_file:
+      - .env
