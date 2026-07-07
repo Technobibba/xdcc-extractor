@@ -182,7 +182,7 @@ scan_existing=false
 [notifications.gotify]
 enabled=false
 url="https://gotify.example.com"
-token=""
+token="<gotify-token>"
 priority_success=3
 priority_error=8
 
@@ -342,7 +342,7 @@ Beispiel:
 [notifications.gotify]
 enabled=true
 url="https://gotify.example.com"
-token="YOUR_GOTIFY_APP_TOKEN"
+token="<gotify-token>"
 
 priority_success=3
 priority_error=8

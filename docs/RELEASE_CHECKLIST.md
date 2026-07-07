@@ -1,161 +1,91 @@
-# Release-Checkliste
+# Release Checkliste
 
-Diese Checkliste wird vor jedem neuen Release oder größeren Update genutzt.
+## Vor jedem Release
 
----
-
-## 1. Arbeitsstand prüfen
-
-```bash
-git status --short
-git log --oneline --decorate -8
-
-Es sollten keine unerwarteten lokalen Änderungen offen sein.
-
-Secrets dürfen nie committed werden:
-
-git check-ignore -v config.docker.toml
-git check-ignore -v config/passwords.txt
-2. Rust prüfen
+~~~bash
 cargo fmt
 cargo test
 cargo build
+~~~
 
-Alle Tests müssen grün sein.
+## Secret- und Public-Check
 
-3. Version prüfen
-./target/debug/xdcc-extractor --version
-./target/debug/xdcc-extractor --help
-./target/debug/xdcc-extractor --status --config config.docker.toml
-4. Docker neu bauen
+~~~bash
+./scripts/publication-check.sh
+~~~
+
+## Docker prüfen
+
+~~~bash
 docker compose down
 docker compose build
 docker compose up -d
-5. Container prüfen
-docker ps --format "table {{.Names}}\t{{.Status}}"
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --version
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
+
+sleep 10
+
+docker inspect --format='{{.State.Health.Status}}' xdcc-extractor
 docker compose logs --tail=100
+~~~
 
-Erwartung:
+## WebUI prüfen
 
-xdcc-extractor   Up ... (healthy)
-6. Gotify prüfen
+- `/`
+- `/settings`
+- `/settings/edit`
+- `/logs`
+- `/health`
 
-Eine Testmeldung senden:
+## Vor GitHub-Veröffentlichung prüfen
 
-curl -sS -X POST "https://gotify.technobibba.duckdns.org/message?token=DEIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"XDCC Release Test","message":"Gotify funktioniert nach Release.","priority":5}'
+Diese Dateien dürfen nicht getrackt sein:
 
-Token nicht committen und nicht in Logs posten.
+~~~text
+.env
+config.toml
+config.docker.toml
+config.env
+config/*.txt
+state/
+logs/
+target/
+~~~
 
-7. Testarchiv prüfen
-rm -rf /tmp/xdcc-release-test
-mkdir -p /tmp/xdcc-release-test
+Prüfen:
 
-echo "XDCC Release Test" > /tmp/xdcc-release-test/test.txt
+~~~bash
+git ls-files | grep -Ei '(^|/)(\.env|config\.toml|config\.docker\.toml|config\.env|passwords\.txt)$|(^|/)(state|logs|target)/'
+~~~
 
-rm -f /media/HDD3/XDCC/Release.Check.Test.1.zip
-rm -rf /media/HDD3/XDCC/_extracted/Release.Check.Test.1
+Wenn keine Ausgabe kommt, ist es gut.
 
-7z a /media/HDD3/XDCC/Release.Check.Test.1.zip /tmp/xdcc-release-test/test.txt
+## Version setzen
 
-rm -rf /tmp/xdcc-release-test
-
-Logs prüfen:
-
-docker compose logs -f
-
-Erwartung:
-
-Archivprüfung erfolgreich
-Entpackung abgeschlossen
-Entpackung validiert
-
-Bei dry_run=true darf das Archiv nicht gelöscht werden.
-
-8. Status nach Test prüfen
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
-9. Commit und Tag
+~~~bash
+cargo test
 git status --short
-git add .
-git restore --staged config.docker.toml 2>/dev/null || true
-git restore --staged config/passwords.txt 2>/dev/null || true
-git commit -m "Release preparation"
+~~~
 
-Tag setzen, Beispiel:
+Dann Version in `Cargo.toml` und `CHANGELOG.md` anpassen.
 
-git tag v0.4.1
-git log --oneline --decorate -8
-git tag
-10. Rollback-Hinweis
+## Commit und Tag
 
-Letzten Stand anzeigen:
+~~~bash
+git add Cargo.toml Cargo.lock CHANGELOG.md
+git commit -m "Bump version to X.Y.Z"
 
-git log --oneline --decorate -10
+git tag -a vX.Y.Z -m "XDCC Extractor vX.Y.Z"
+~~~
 
-Auf einen älteren Stand zurückgehen:
+## Optional Push
 
-git checkout <commit-oder-tag>
-docker compose down
-docker compose build
-docker compose up -d
+~~~bash
+git push origin master
+git push origin vX.Y.Z
+~~~
 
-Danach wieder Status prüfen:
+Falls dein Branch `main` heißt:
 
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
-docker compose logs --tail=100
-
-
----
-
-## 11. Failed-Releases prüfen und optional zurücksetzen
-
-Vor oder nach einem Release kann der Scan genutzt werden, um fehlgeschlagene Releases zu sehen:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-
-Wenn ein Release absichtlich erneut versucht werden soll, z. B. nachdem ein Passwort ergänzt wurde:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
-
-Danach erneut prüfen:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-
-Erwartung:
-
-[failed] wird nach dem Zurücksetzen wieder zu [new]
-
-Hinweis:
-
---clear-failed löscht nur den .failed-Marker in der History.
-Das Release selbst und die Archivdateien bleiben unverändert.
-
----
-
-## Dry-Run-False Teststatus
-
-Ein kontrollierter Test mit `dry_run=false` wurde erfolgreich durchgeführt.
-
-Getestet wurde:
-
-- Testarchiv im XDCC-Ordner
-- manuelle Verarbeitung über `--process`
-- `delete_archives=true`
-- `dry_run=false`
-- Archiv wurde nach erfolgreicher Verarbeitung gelöscht
-- entpackte Datei blieb erhalten
-- `.done` History wurde geschrieben
-- Produktiv-Config blieb auf `dry_run=true`
-
-Damit ist bestätigt, dass Cleanup grundsätzlich funktioniert.
-
-Für den echten Produktivbetrieb sollte vor dem Umschalten weiterhin geprüft werden:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-check
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-report
-
+~~~bash
+git push origin main
+git push origin vX.Y.Z
+~~~
