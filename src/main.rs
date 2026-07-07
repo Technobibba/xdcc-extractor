@@ -137,7 +137,7 @@ fn main() -> anyhow::Result<()> {
     info!("Retry max_delay={}s", retry.max_delay);
     info!("Startup-Scan aktiviert: {}", startup_scan_existing);
     info!("Gotify aktiviert: {}", notifications.gotify_enabled());
-    web::start(config.clone())?;
+    web::start(config.clone(), config_path.clone())?;
 
     let (tx, rx) = channel();
 

@@ -2,7 +2,7 @@ use crate::{config::Config, history::History, log_buffer, manual_process, scan};
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    extract::{Request, State},
+    extract::{Form, Request, State},
     http::{StatusCode, header},
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
@@ -23,6 +23,7 @@ use tracing::{info, warn};
 #[derive(Clone)]
 struct AppState {
     config: Config,
+    config_path: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -30,11 +31,32 @@ struct PathRequest {
     path: String,
 }
 
-pub fn start(config: Config) -> Result<()> {
+#[derive(Debug, Deserialize)]
+struct SettingsForm {
+    stable_after: u64,
+    allow_root_archives: Option<String>,
+    delete_archives: Option<String>,
+    dry_run: Option<String>,
+    keep_failed: Option<String>,
+    retry_base_delay: u64,
+    retry_max_delay: u64,
+    startup_scan_existing: Option<String>,
+    gotify_enabled: Option<String>,
+    gotify_priority_success: i32,
+    gotify_priority_error: i32,
+    gotify_notify_on_success: Option<String>,
+    gotify_notify_on_error: Option<String>,
+    gotify_notify_on_every_error: Option<String>,
+    gotify_notify_after_attempts: u64,
+}
+
+pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
     if !config.web.enabled {
         info!("WebUI deaktiviert");
         return Ok(());
     }
+
+    let config_path = config_path.into();
 
     let bind = config.web.bind.clone();
     let addr: SocketAddr = bind
@@ -51,11 +73,15 @@ pub fn start(config: Config) -> Result<()> {
         };
 
         runtime.block_on(async move {
-            let state = Arc::new(AppState { config });
+            let state = Arc::new(AppState {
+                config,
+                config_path,
+            });
 
             let protected_routes = Router::new()
                 .route("/", get(index))
                 .route("/settings", get(settings))
+                .route("/settings/edit", get(settings_edit).post(update_settings))
                 .route("/logs", get(logs))
                 .route("/api/status", get(api_status))
                 .route("/api/config", get(api_config))
@@ -146,6 +172,480 @@ async fn require_auth(
 
 async fn health() -> &'static str {
     "ok"
+}
+
+async fn settings_edit(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let config = match Config::load(&state.config_path) {
+        Ok(config) => config,
+        Err(err) => {
+            warn!(
+                "Konnte Config für Settings-Editor nicht frisch laden: {:?}",
+                err
+            );
+            state.config.clone()
+        }
+    };
+
+    Html(settings_edit_page_html(&config, &state.config_path, None))
+}
+
+async fn update_settings(
+    State(state): State<Arc<AppState>>,
+    Form(form): Form<SettingsForm>,
+) -> impl IntoResponse {
+    let message = match apply_settings_to_config_file(&state.config_path, &form) {
+        Ok(()) => {
+            info!(
+                "WebUI Einstellungen gespeichert: {}",
+                state.config_path.display()
+            );
+            "Gespeichert. Bitte Container neu starten, damit der Worker die neuen Werte übernimmt."
+                .to_string()
+        }
+        Err(err) => format!("Speichern fehlgeschlagen: {err:?}"),
+    };
+
+    let config = match Config::load(&state.config_path) {
+        Ok(config) => config,
+        Err(err) => {
+            warn!("Konnte Config nach Settings-Update nicht laden: {:?}", err);
+            state.config.clone()
+        }
+    };
+
+    Html(settings_edit_page_html(
+        &config,
+        &state.config_path,
+        Some(&message),
+    ))
+}
+
+fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<()> {
+    if form.stable_after == 0 {
+        anyhow::bail!("stable_after muss größer als 0 sein");
+    }
+
+    if form.retry_base_delay == 0 {
+        anyhow::bail!("retry.base_delay muss größer als 0 sein");
+    }
+
+    if form.retry_max_delay < form.retry_base_delay {
+        anyhow::bail!("retry.max_delay muss größer oder gleich retry.base_delay sein");
+    }
+
+    if form.gotify_notify_after_attempts == 0 {
+        anyhow::bail!("notify_after_attempts muss größer als 0 sein");
+    }
+
+    let mut content = fs::read_to_string(path)
+        .with_context(|| format!("Konnte Config nicht lesen: {}", path.display()))?;
+
+    content = set_toml_value(
+        content,
+        "watch",
+        "stable_after",
+        &form.stable_after.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "watch",
+        "allow_root_archives",
+        toml_bool(form.allow_root_archives.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "extract",
+        "delete_archives",
+        toml_bool(form.delete_archives.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "extract",
+        "dry_run",
+        toml_bool(form.dry_run.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "extract",
+        "keep_failed",
+        toml_bool(form.keep_failed.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "retry",
+        "base_delay",
+        &form.retry_base_delay.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "retry",
+        "max_delay",
+        &form.retry_max_delay.to_string(),
+    );
+
+    content = set_toml_value(
+        content,
+        "startup",
+        "scan_existing",
+        toml_bool(form.startup_scan_existing.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "enabled",
+        toml_bool(form.gotify_enabled.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "priority_success",
+        &form.gotify_priority_success.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "priority_error",
+        &form.gotify_priority_error.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_success",
+        toml_bool(form.gotify_notify_on_success.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_error",
+        toml_bool(form.gotify_notify_on_error.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_every_error",
+        toml_bool(form.gotify_notify_on_every_error.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_after_attempts",
+        &form.gotify_notify_after_attempts.to_string(),
+    );
+
+    fs::write(path, content)
+        .with_context(|| format!("Konnte Config nicht schreiben: {}", path.display()))?;
+
+    Ok(())
+}
+
+fn set_toml_value(content: String, section: &str, key: &str, value: &str) -> String {
+    let mut lines = content.lines().map(str::to_string).collect::<Vec<_>>();
+    let had_trailing_newline = content.ends_with('\n');
+
+    let mut in_target = false;
+    let mut section_found = false;
+    let mut insert_at = None;
+
+    for index in 0..lines.len() {
+        let trimmed = lines[index].trim();
+
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            if in_target && insert_at.is_none() {
+                insert_at = Some(index);
+            }
+
+            in_target = &trimmed[1..trimmed.len() - 1] == section;
+
+            if in_target {
+                section_found = true;
+            }
+
+            continue;
+        }
+
+        if !in_target {
+            continue;
+        }
+
+        let without_comment = lines[index].split('#').next().unwrap_or("");
+        let candidate = without_comment.trim_start();
+
+        if !candidate.starts_with(key) {
+            continue;
+        }
+
+        let rest = &candidate[key.len()..];
+
+        if rest.trim_start().starts_with('=') {
+            let indent_len = lines[index].len() - lines[index].trim_start().len();
+            let indent = &lines[index][..indent_len];
+            let comment = lines[index]
+                .find('#')
+                .map(|pos| format!(" {}", lines[index][pos..].trim_start()))
+                .unwrap_or_default();
+
+            lines[index] = format!("{indent}{key}={value}{comment}");
+            return finish_toml_lines(lines, had_trailing_newline);
+        }
+    }
+
+    if section_found {
+        let index = insert_at.unwrap_or(lines.len());
+        lines.insert(index, format!("{key}={value}"));
+    } else {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+
+        lines.push(format!("[{section}]"));
+        lines.push(format!("{key}={value}"));
+    }
+
+    finish_toml_lines(lines, had_trailing_newline)
+}
+
+fn finish_toml_lines(lines: Vec<String>, trailing_newline: bool) -> String {
+    let mut output = lines.join("\n");
+
+    if trailing_newline {
+        output.push('\n');
+    }
+
+    output
+}
+
+fn toml_bool(value: bool) -> &'static str {
+    if value { "true" } else { "false" }
+}
+
+fn checked(value: bool) -> &'static str {
+    if value { "checked" } else { "" }
+}
+
+fn escape_html(input: &str) -> String {
+    input
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+fn settings_edit_page_html(config: &Config, config_path: &Path, message: Option<&str>) -> String {
+    let message_html = message
+        .map(|message| {
+            format!(
+                r#"<section class="notice">{}</section>"#,
+                escape_html(message)
+            )
+        })
+        .unwrap_or_default();
+
+    format!(
+        r#"<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XDCC Extractor Einstellungen bearbeiten</title>
+<style>
+:root {{
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --text: #e6e6e6;
+  --muted: #9aa4b2;
+  --border: #2a2f3a;
+  --ok: #25c26e;
+}}
+body {{
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}}
+main {{
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}}
+h1 {{
+  margin: 0 0 6px;
+}}
+.sub {{
+  color: var(--muted);
+  margin-bottom: 22px;
+}}
+.card, .notice {{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 14px;
+}}
+.notice {{
+  border-color: var(--ok);
+}}
+.grid {{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}}
+label {{
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 6px;
+}}
+input[type="number"] {{
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #11131a;
+  color: var(--text);
+}}
+.check {{
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--text);
+  margin: 10px 0;
+}}
+.actions {{
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+}}
+.button {{
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #222735;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}}
+button.button {{
+  background: #284f38;
+}}
+code {{
+  color: #cfd7e6;
+}}
+.small {{
+  color: var(--muted);
+  font-size: 13px;
+}}
+@media (max-width: 720px) {{
+  .grid {{
+    grid-template-columns: 1fr;
+  }}
+}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Einstellungen bearbeiten</h1>
+  <div class="sub">Config: <code>{config_path}</code></div>
+
+  <div class="actions">
+    <a class="button" href="/settings">Zurück</a>
+    <a class="button" href="/">Dashboard</a>
+    <a class="button" href="/logs">Logs</a>
+  </div>
+
+  {message_html}
+
+  <form method="post" action="/settings/edit">
+    <section class="card">
+      <h2>Watch</h2>
+      <div class="grid">
+        <div>
+          <label for="stable_after">stable_after Sekunden</label>
+          <input id="stable_after" name="stable_after" type="number" min="1" value="{stable_after}">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" name="allow_root_archives" {allow_root_archives}> Root-Archive erlauben</label>
+    </section>
+
+    <section class="card">
+      <h2>Extract</h2>
+      <label class="check"><input type="checkbox" name="dry_run" {dry_run}> Dry-Run aktiv</label>
+      <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
+      <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
+      <div class="small">Passwortdatei und Passwortlisten-Inhalt werden hier nicht bearbeitet.</div>
+    </section>
+
+    <section class="card">
+      <h2>Retry / Startup</h2>
+      <div class="grid">
+        <div>
+          <label for="retry_base_delay">base_delay Sekunden</label>
+          <input id="retry_base_delay" name="retry_base_delay" type="number" min="1" value="{retry_base_delay}">
+        </div>
+        <div>
+          <label for="retry_max_delay">max_delay Sekunden</label>
+          <input id="retry_max_delay" name="retry_max_delay" type="number" min="1" value="{retry_max_delay}">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" name="startup_scan_existing" {startup_scan_existing}> Beim Start vorhandene Releases scannen</label>
+    </section>
+
+    <section class="card">
+      <h2>Gotify</h2>
+      <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
+      <div class="grid">
+        <div>
+          <label for="gotify_priority_success">priority_success</label>
+          <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
+        </div>
+        <div>
+          <label for="gotify_priority_error">priority_error</label>
+          <input id="gotify_priority_error" name="gotify_priority_error" type="number" value="{gotify_priority_error}">
+        </div>
+        <div>
+          <label for="gotify_notify_after_attempts">notify_after_attempts</label>
+          <input id="gotify_notify_after_attempts" name="gotify_notify_after_attempts" type="number" min="1" value="{gotify_notify_after_attempts}">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
+      <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
+      <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
+      <div class="small">Gotify URL und Token werden hier nicht angezeigt oder bearbeitet.</div>
+    </section>
+
+    <div class="actions">
+      <button class="button" type="submit">Speichern</button>
+      <a class="button" href="/settings">Abbrechen</a>
+    </div>
+  </form>
+</main>
+</body>
+</html>"#,
+        config_path = escape_html(&config_path.display().to_string()),
+        message_html = message_html,
+        stable_after = config.watch.stable_after,
+        allow_root_archives = checked(config.watch.allow_root_archives),
+        dry_run = checked(config.extract.dry_run),
+        delete_archives = checked(config.extract.delete_archives),
+        keep_failed = checked(config.extract.keep_failed),
+        retry_base_delay = config.retry.base_delay,
+        retry_max_delay = config.retry.max_delay,
+        startup_scan_existing = checked(config.startup.scan_existing),
+        gotify_enabled = checked(config.notifications.gotify.enabled),
+        gotify_priority_success = config.notifications.gotify.priority_success,
+        gotify_priority_error = config.notifications.gotify.priority_error,
+        gotify_notify_on_success = checked(config.notifications.gotify.notify_on_success),
+        gotify_notify_on_error = checked(config.notifications.gotify.notify_on_error),
+        gotify_notify_on_every_error = checked(config.notifications.gotify.notify_on_every_error),
+        gotify_notify_after_attempts = config.notifications.gotify.notify_after_attempts,
+    )
 }
 
 async fn logs() -> Html<String> {
@@ -953,6 +1453,7 @@ footer {{
   <div class="actions">
     <a class="button" href="/">Zurück zum Dashboard</a>
     <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/api/config" target="_blank" rel="noopener">Config API öffnen</a>
     <a class="button" href="/api/status" target="_blank" rel="noopener">Status API öffnen</a>
   </div>
