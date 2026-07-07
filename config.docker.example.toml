@@ -11,6 +11,7 @@ allow_root_archives=true
 delete_archives=true
 dry_run=true
 keep_failed=true
+password_file="/config/passwords.txt"
 
 [history]
 directory="/state/history"
@@ -26,20 +27,17 @@ scan_existing=false
 directory="/downloads/_extracted"
 
 [notifications.gotify]
-enabled=false
-url=""
+enabled=true
+url="https://gotify.example.local"
 token=""
 priority_success=3
-priority_error=8
+priority_error=9
 
 notify_on_success=true
-
 notify_on_error=true
-
 notify_on_every_error=false
-
 notify_after_attempts=3
 
 [web]
-enabled=false
+enabled=true
 bind="0.0.0.0:8099"

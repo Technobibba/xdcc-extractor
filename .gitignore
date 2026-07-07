@@ -11,3 +11,7 @@ config/passwords.txt
 state/config-backups/
 config.docker.toml.bak.*
 config.toml.bak.*
+config/*.txt
+state/
+target/
+*.bak.*
