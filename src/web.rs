@@ -92,6 +92,7 @@ pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
                 .route("/api/logs", get(api_logs))
                 .route("/api/clear-failed", post(api_clear_failed))
                 .route("/api/process", post(api_process))
+                .route("/api/restart", post(api_restart))
                 .route("/assets/app.js", get(app_js))
                 .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
@@ -202,10 +203,8 @@ async fn update_settings(
                 state.config_path.display(),
                 backup_path.display()
             );
-            format!(
-                "Gespeichert. Backup: {}. Bitte Container neu starten, damit der Worker die neuen Werte übernimmt.",
-                backup_path.display()
-            )
+            "Gespeichert. Backup wurde erstellt. Neustart erforderlich, damit der Worker die neuen Werte übernimmt."
+                .to_string()
         }
         Err(err) => format!("Speichern fehlgeschlagen: {err:?}"),
     };
@@ -710,10 +709,44 @@ code {{
 
     <div class="actions">
       <button class="button" type="submit">Speichern</button>
+      <button id="restart-worker" class="button" type="button">Neustart</button>
       <a class="button" href="/settings">Abbrechen</a>
     </div>
+    <div id="restart-status" class="small"></div>
   </form>
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {{
+  const button = document.getElementById('restart-worker');
+  const status = document.getElementById('restart-status');
+
+  if (!button) {{
+    return;
+  }}
+
+  button.addEventListener('click', async () => {{
+    const ok = confirm('Worker jetzt neu starten? Die WebUI ist kurz nicht erreichbar.');
+    if (!ok) {{
+      return;
+    }}
+
+    button.disabled = true;
+    status.textContent = 'Neustart wird ausgelöst. Seite lädt gleich neu...';
+
+    try {{
+      await fetch('/api/restart', {{ method: 'POST', cache: 'no-store' }});
+    }} catch (error) {{
+      // Beim Neustart kann die Verbindung abbrechen. Das ist hier erwartbar.
+    }}
+
+    setTimeout(() => {{
+      window.location.href = '/settings/edit';
+    }}, 12000);
+  }});
+}});
+</script>
+
 </body>
 </html>"#,
         config_path = escape_html(&config_path.display().to_string()),
@@ -1356,6 +1389,20 @@ async fn api_process(
     }
 }
 
+async fn api_restart() -> Json<serde_json::Value> {
+    info!("WebUI Neustart wurde angefordert.");
+
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_millis(900));
+        std::process::exit(0);
+    });
+
+    Json(json!({
+        "ok": true,
+        "message": "Neustart wird ausgelöst"
+    }))
+}
+
 async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let gotify_enabled = if state.config.notifications.gotify.enabled {
         r#"<span class="badge ok">aktiv</span>"#
@@ -1913,6 +1960,7 @@ code {{
       <div class="small"><code>/api/logs</code></div>
       <div class="small"><code>/api/clear-failed</code></div>
       <div class="small"><code>/api/process</code></div>
+      <div class="small"><code>/api/restart</code></div>
       <div class="small"><code>/health</code></div>
     </section>
 
