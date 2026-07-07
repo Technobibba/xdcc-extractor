@@ -3,6 +3,7 @@ mod dry_run_check;
 mod dry_run_report;
 mod extractor;
 mod history;
+mod log_buffer;
 mod maintenance;
 mod manual_process;
 mod notifications;
@@ -86,7 +87,12 @@ fn main() -> anyhow::Result<()> {
         return dry_run_check::run_from_args();
     }
 
-    tracing_subscriber::fmt().init();
+    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(log_buffer::layer())
+        .init();
 
     let config_path = status::config_path_from_args();
     let config = config::Config::load(&config_path)?;
