@@ -60,7 +60,7 @@ enabled=false
 
 # Beispiel:
 # url="https://gotify.example.com"
-url=""
+url="https://gotify.example.local"
 
 # Gotify App Token.
 # Niemals echte Tokens ins Git committen.

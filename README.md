@@ -1118,3 +1118,109 @@ Secrets werden nicht angezeigt:
 
 Gotify Token
 Inhalt der Passwortliste
+
+<!-- XDCC_EXTRACTOR_DOCKER_DOCS_START -->
+
+## Docker Quickstart
+
+XDCC Extractor überwacht einen Download-Ordner, erkennt fertige Releases, entpackt Archive automatisch und verwaltet erfolgreiche sowie fehlgeschlagene Verarbeitungen über eine History.
+
+### Voraussetzungen
+
+- Docker und Docker Compose
+- Ein Host-Downloadordner, zum Beispiel `/media/HDD3/XDCC`
+- Optional: Gotify für Benachrichtigungen
+
+### Setup
+
+~~~bash
+git clone <REPOSITORY_URL>
+cd xdcc-extractor
+
+cp config.docker.example.toml config.docker.toml
+cp .env.example .env
+~~~
+
+Danach `.env` lokal bearbeiten:
+
+~~~env
+XDCC_WEB_AUTH_USER=admin
+XDCC_WEB_AUTH_PASSWORD=change-me
+~~~
+
+Die Datei `.env` darf nicht committed werden.
+
+### Start
+
+~~~bash
+docker compose build
+docker compose up -d
+docker compose logs --tail=100
+~~~
+
+WebUI:
+
+~~~text
+http://<docker-host>:8099
+~~~
+
+Standardmäßig ist die WebUI per Basic Auth geschützt. Die Zugangsdaten kommen aus `.env`.
+
+### WebUI Funktionen
+
+- Dashboard
+- Scan-Ansicht
+- Releases manuell verarbeiten
+- Fehlgeschlagene Releases zurücksetzen
+- Logs anzeigen
+- Einstellungen anzeigen und bearbeiten
+- Gotify URL und Token setzen
+- Neustart des Workers über die WebUI auslösen
+
+### Wichtige APIs
+
+~~~text
+/health
+/api/status
+/api/config
+/api/scan
+/api/failures
+/api/logs
+/api/clear-failed
+/api/process
+/api/restart
+~~~
+
+`/health` ist absichtlich ohne Auth erreichbar, damit Docker den Healthcheck ausführen kann.
+
+### Sicherheit
+
+Diese Dateien enthalten lokale Daten oder Secrets und dürfen nicht committed werden:
+
+~~~text
+.env
+config.toml
+config.docker.toml
+config/*.txt
+state/
+logs/
+~~~
+
+Gotify Token, WebUI Passwort und Passwortlisten-Inhalt werden in der WebUI nicht angezeigt.
+
+### Entwicklung
+
+~~~bash
+cargo fmt
+cargo test
+cargo build
+~~~
+
+### Release
+
+~~~bash
+git tag -a vX.Y.Z -m "XDCC Extractor vX.Y.Z"
+~~~
+
+<!-- XDCC_EXTRACTOR_DOCKER_DOCS_END -->
+
