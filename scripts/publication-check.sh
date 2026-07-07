@@ -32,6 +32,11 @@ import sys
 
 tracked = subprocess.check_output(["git", "ls-files"], text=True).splitlines()
 
+# Dieses Script enthält selbst die Suchmuster und würde sich sonst selbst melden.
+skip_files = {
+    "scripts/publication-check.sh",
+}
+
 allow_files = {
     ".env.example",
     "config.docker.example.toml",
@@ -50,6 +55,9 @@ patterns = [
 hits = []
 
 for file in tracked:
+    if file in skip_files:
+        continue
+
     path = Path(file)
 
     if not path.is_file():

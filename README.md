@@ -1,1156 +1,70 @@
 # XDCC Extractor
 
-XDCC Extractor ist ein kleiner Rust-basierter Worker für automatisch heruntergeladene XDCC-Archive.
-
-Der Worker überwacht einen Download-Ordner, erkennt fertige Archive, prüft sie, entpackt sie in einen Zielordner, merkt sich verarbeitete Releases und kann optional Gotify-Benachrichtigungen senden.
-
-Das Projekt ist für den Betrieb per Docker gedacht.
-
----
-
-## Hauptfunktionen
-
-- überwacht einen Download-Ordner
-- wartet, bis Dateien stabil sind
-- verarbeitet Jobs über eine interne Queue
-- erkennt Archive in Unterordnern und direkt im Root-Download-Ordner
-- unterstützt mehrteilige Archive
-- prüft Archive vor dem Entpacken
-- entpackt Archive in einen konfigurierbaren Zielordner
-- validiert, ob nach dem Entpacken Dateien vorhanden sind
-- speichert verarbeitete Releases in einer History
-- speichert fehlgeschlagene Releases mit Fehlertext und Versuchszähler
-- unterstützt Retry mit Backoff
-- unterstützt Dry-Run-Cleanup
-- unterstützt Gotify-Benachrichtigungen
-- unterstützt Passwortlisten für verschlüsselte Archive
-- enthält Unit Tests für zentrale Logik
-- enthält Docker Healthcheck
-- enthält lokales Status-Script
-
----
-
-## Unterstützte Archivformate
-
-Aktuell unterstützt:
-
-```text
-.rar
-.part01.rar / .part02.rar / ...
-.r00 / .r01 / ...
-.zip
-.7z
-.001 / .002 / ...
-.tar
-.tar.gz
-.tgz
-.tar.xz
-.txz
-.tar.bz2
-.tbz2
-```
-
-RAR-Archive werden über `unrar` verarbeitet.
-
-ZIP, 7z und Split-Archive werden über `7z` verarbeitet.
-
-TAR-Archive werden über `tar` verarbeitet.
-
----
-
-## Projektstruktur
-
-```text
-/opt/xdcc-extractor
-├── src/
-│   ├── main.rs
-│   ├── config.rs
-│   ├── extractor.rs
-│   ├── history.rs
-│   ├── notifications.rs
-│   ├── passwords.rs
-│   └── queue.rs
-├── docs/
-│   └── ROADMAP.md
-├── scripts/
-│   └── status.sh
-├── state/
-│   └── history/
-├── config/
-│   └── passwords.txt
-├── Cargo.toml
-├── Dockerfile
-├── compose.yaml
-├── healthcheck.sh
-├── config.example.toml
-├── config.docker.example.toml
-├── passwords.example.txt
-└── README.md
-```
-
-Lokale Dateien mit Secrets werden nicht committed:
-
-```text
-config.toml
-config.docker.toml
-config/passwords.txt
-state/history/
-```
-
----
-
-## Docker-Betrieb
-
-Der Worker wird per Docker Compose gestartet.
-
-Beispiel `compose.yaml`:
-
-```yaml
-services:
-  xdcc-extractor:
-    build: .
-    container_name: xdcc-extractor
-    restart: unless-stopped
-
-    environment:
-      TZ: Europe/Berlin
-
-    volumes:
-      - /media/HDD3/XDCC:/downloads
-      - ./config.docker.toml:/app/config.toml:ro
-      - ./state:/state
-      - ./config:/config:ro
-```
-
-Starten:
-
-```bash
-docker compose up -d
-```
-
-Logs ansehen:
-
-```bash
-docker compose logs -f
-```
-
-Neu bauen:
-
-```bash
-docker compose down
-docker compose build
-docker compose up -d
-```
-
----
-
-## Konfiguration
-
-Die Docker-Konfiguration liegt lokal in:
-
-```text
-/opt/xdcc-extractor/config.docker.toml
-```
-
-Beispiel:
-
-```toml
-[watch]
-directory="/downloads"
-stable_after=30
-allow_root_archives=true
-
-[extract]
-delete_archives=true
-dry_run=true
-keep_failed=true
-password_file="/config/passwords.txt"
-
-[output]
-directory="/downloads/_extracted"
-
-[history]
-directory="/state/history"
-
-[retry]
-base_delay=60
-max_delay=1800
-
-[startup]
-scan_existing=false
-
-[notifications.gotify]
-enabled=false
-url="https://gotify.example.com"
-token="<gotify-token>"
-priority_success=3
-priority_error=8
-
-notify_on_success=true
-notify_on_error=true
-notify_on_every_error=false
-notify_after_attempts=3
-```
-
----
-
-## Wichtige Sicherheitsoptionen
-
-### Dry Run
-
-```toml
-[extract]
-dry_run=true
-```
-
-Wenn `dry_run=true` gesetzt ist, werden Archivdateien nach erfolgreicher Entpackung **nicht gelöscht**.
-
-Der Worker zeigt nur an, welche Dateien gelöscht würden.
-
-Empfohlen für Tests und Live-Start.
-
----
-
-### Archive löschen
-
-```toml
-[extract]
-delete_archives=true
-```
-
-Wenn `delete_archives=true` und `dry_run=false` gesetzt ist, löscht der Worker nach erfolgreicher Verarbeitung die erkannten Archivdateien.
-
-Solange `dry_run=true` aktiv ist, wird trotzdem nichts gelöscht.
-
----
-
-### Fehlerhafte Archive behalten
-
-```toml
-[extract]
-keep_failed=true
-```
-
-Wenn ein Release fehlschlägt, bleibt es erhalten.
-
-Der Fehler wird in der History gespeichert.
-
----
-
-## Output-Verzeichnis
-
-Das Zielverzeichnis für entpackte Releases wird hier konfiguriert:
-
-```toml
-[output]
-directory="/downloads/_extracted"
-```
-
-Bei einem Archiv:
-
-```text
-/downloads/Movie.Release.1.zip
-```
-
-entsteht z. B.:
-
-```text
-/downloads/_extracted/Movie.Release.1/
-```
-
----
-
-## Root-Archive
-
-Botarr/XDCC speichert Downloads oft direkt im Root-Ordner, z. B.:
-
-```text
-/downloads/Movie.Release.part01.rar
-/downloads/Movie.Release.part02.rar
-/downloads/Movie.Release.part03.rar
-```
-
-Dafür muss aktiviert sein:
-
-```toml
-[watch]
-allow_root_archives=true
-```
-
-Dann erkennt der Worker automatisch das Startarchiv und verarbeitet die zusammengehörigen Parts.
-
----
-
-## History
-
-Die History wird hier gespeichert:
-
-```toml
-[history]
-directory="/state/history"
-```
-
-Erfolgreiche Releases erhalten eine `.done`-Datei.
-
-Fehlgeschlagene Releases erhalten eine `.failed`-Datei mit Fehlertext und Versuchszähler.
-
-Beispiel:
-
-```text
-/state/history/Movie.Release.done
-/state/history/Broken.Release.failed
-```
-
----
-
-## Retry / Backoff
-
-Retry wird hier konfiguriert:
-
-```toml
-[retry]
-base_delay=60
-max_delay=1800
-```
-
-Beispiel:
-
-```text
-1. Fehler: Retry nach 60 Sekunden
-2. Fehler: Retry nach 120 Sekunden
-3. Fehler: Retry nach 240 Sekunden
-...
-maximal 1800 Sekunden
-```
-
----
-
-## Gotify-Benachrichtigungen
-
-XDCC Extractor kann Benachrichtigungen über Gotify senden.
-
-Unterstützt wird:
-
-- Meldung bei erfolgreicher Verarbeitung
-- Meldung bei Fehlern
-- konfigurierbare Prioritäten
-- Schutz vor zu vielen Fehlermeldungen
-
-Beispiel:
-
-```toml
-[notifications.gotify]
-enabled=true
-url="https://gotify.example.com"
-token="<gotify-token>"
-
-priority_success=3
-priority_error=8
-
-notify_on_success=true
-notify_on_error=true
-
-# Wenn true, wird jeder Fehler gemeldet.
-notify_on_every_error=false
-
-# Wenn notify_on_every_error=false ist,
-# wird erst ab diesem Fehlversuch eine Meldung gesendet.
-notify_after_attempts=3
-```
-
-Empfohlene Einstellung:
-
-```toml
-notify_on_success=true
-notify_on_error=true
-notify_on_every_error=false
-notify_after_attempts=3
-```
-
-Damit wird ein fehlerhaftes Release nicht bei jedem Retry gemeldet, sondern erst nach mehreren Fehlversuchen.
-
-Der Gotify-Token gehört nur in lokale Config-Dateien wie:
-
-```text
-config.docker.toml
-```
-
-und darf nicht committed werden.
-
----
-
-## Gotify testen
-
-```bash
-curl -sS -X POST "https://gotify.example.com/message?token=YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"XDCC Test","message":"Gotify funktioniert.","priority":5}'
-```
-
----
-
-## Passwortgeschützte Archive
-
-XDCC Extractor kann passwortgeschützte Archive mit einer Passwortliste verarbeiten.
-
-Ablauf:
-
-```text
-Archiv prüfen
-↓
-Passwortfehler erkannt
-↓
-Passwortliste laden
-↓
-Passwörter nacheinander testen
-↓
-mit passendem Passwort entpacken
-```
-
-Unterstützt wird aktuell:
-
-- passwortgeschützte `.zip` Archive über `7z`
-- passwortgeschützte `.7z` Archive über `7z`
-- passwortgeschützte `.rar` Archive über `unrar`
-
----
-
-## Passwortdatei konfigurieren
-
-In der Config:
-
-```toml
-[extract]
-password_file="/config/passwords.txt"
-```
-
-Wenn keine Passwortliste genutzt werden soll:
-
-```toml
-[extract]
-password_file=""
-```
-
----
-
-## Passwortdatei im Docker-Setup
-
-Der lokale Config-Ordner wird in den Container eingebunden:
-
-```yaml
-volumes:
-  - ./config:/config:ro
-```
-
-Host-Pfad:
-
-```text
-/opt/xdcc-extractor/config/passwords.txt
-```
-
-Container-Pfad:
-
-```text
-/config/passwords.txt
-```
-
----
-
-## Beispiel `passwords.txt`
-
-```text
-# Kommentare beginnen mit #
-password1
-password2
-mein-geheimes-passwort
-```
-
-Regeln:
-
-- ein Passwort pro Zeile
-- leere Zeilen werden ignoriert
-- Zeilen mit `#` am Anfang werden ignoriert
-
-Die Datei darf nicht committed werden.
-
-Prüfen:
-
-```bash
-git check-ignore -v config/passwords.txt
-```
-
----
-
-## Verhalten bei falschem Passwort
-
-Wenn kein Passwort passt, wird das Release als fehlgeschlagen markiert.
-
-Der Fehler erscheint in:
-
-```text
-/state/history/*.failed
-```
-
-und kann per Gotify gemeldet werden.
-
----
-
-## Docker Healthcheck
-
-Der Container enthält einen Healthcheck.
-
-Geprüft wird:
-
-- Binary vorhanden
-- Config vorhanden
-- Download-Ordner vorhanden
-- State-Ordner vorhanden
-- Config-Ordner vorhanden, wenn Passwortdatei konfiguriert ist
-
-Status prüfen:
-
-```bash
-docker ps --format "table {{.Names}}\t{{.Status}}"
-```
-
-Erwartung:
-
-```text
-xdcc-extractor   Up ... (healthy)
-```
-
----
-
-## Lokaler Status-Check
-
-Für eine schnelle Übersicht auf dem Docker-Host:
-
-```bash
-./scripts/status.sh
-```
-
-Der Check zeigt:
-
-- Git-Status
-- Docker-Status
-- Container-Health
-- Docker-Mounts
-- Config-Status
-- Passwortdatei-Status
-- wichtige Verzeichnisse
-- letzte Container-Logs
-
----
-
-## Entwicklung
-
-Rust-Version prüfen:
-
-```bash
-rustc --version
-cargo --version
-```
-
-Formatieren:
-
-```bash
-cargo fmt
-```
-
-Tests ausführen:
-
-```bash
-cargo test
-```
-
-Build:
-
-```bash
-cargo build
-```
-
-Release-Build:
-
-```bash
-cargo build --release
-```
-
----
-
-## Tests
-
-Aktuell gibt es Tests für:
-
-- Archiv-Erkennung
-- Archiv-Start-Erkennung
-- TAR-Erkennung
-- RAR-Part-Erkennung
-- Cleanup-Gruppen
-- Queue-Verhalten
-- History `.done` / `.failed`
-- Fehlerklassifizierung
-- Passwortdatei-Laden
-
-Tests ausführen:
-
-```bash
-cargo test
-```
-
----
-
-## Testarchive erzeugen
-
-### Normales ZIP
-
-```bash
-rm -rf /tmp/xdcc-test
-mkdir -p /tmp/xdcc-test
-
-echo "XDCC Test" > /tmp/xdcc-test/test.txt
-
-rm -f /media/HDD3/XDCC/Test.Release.1.zip
-rm -rf /media/HDD3/XDCC/_extracted/Test.Release.1
-
-7z a /media/HDD3/XDCC/Test.Release.1.zip /tmp/xdcc-test/test.txt
-
-rm -rf /tmp/xdcc-test
-```
-
----
-
-### Passwortgeschütztes ZIP
-
-```bash
-echo "secret123" > config/passwords.txt
-
-docker compose restart
-
-rm -rf /tmp/password-test
-mkdir -p /tmp/password-test
-
-echo "Passwort Test" > /tmp/password-test/test.txt
-
-rm -f /media/HDD3/XDCC/Password.Test.1.zip
-rm -rf /media/HDD3/XDCC/_extracted/Password.Test.1
-
-7z a -psecret123 -mem=AES256 /media/HDD3/XDCC/Password.Test.1.zip /tmp/password-test/test.txt
-
-rm -rf /tmp/password-test
-```
-
-Logs ansehen:
-
-```bash
-docker compose logs -f
-```
-
-Erwartung:
-
-```text
-Archiv benötigt vermutlich ein Passwort
-Archivprüfung mit Passwort #1 erfolgreich
-Entpackung abgeschlossen
-Entpackung validiert
-```
-
----
-
-### Fehlerhaftes Archiv
-
-```bash
-rm -f /media/HDD3/XDCC/Error.Test.1.zip
-echo "kein echtes archiv" > /media/HDD3/XDCC/Error.Test.1.zip
-```
-
-Erwartung im Log:
-
-```text
-Grund: Datei ist kein gültiges Archiv
-```
-
----
-
-## Git-Sicherheit
-
-Vor jedem Commit prüfen:
-
-```bash
-git status --short
-```
-
-Secrets dürfen nicht committed werden:
-
-```bash
-git check-ignore -v config.docker.toml
-git check-ignore -v config/passwords.txt
-```
-
-Sicher committen:
-
-```bash
-git add .
-git restore --staged config.docker.toml 2>/dev/null || true
-git restore --staged config/passwords.txt 2>/dev/null || true
-git commit -m "Commit message"
-```
-
----
-
-## Aktueller empfohlener Betrieb
-
-Für Live-Betrieb aktuell empfohlen:
-
-```toml
-[extract]
-delete_archives=true
-dry_run=true
-keep_failed=true
-password_file="/config/passwords.txt"
-```
-
-Damit werden Archive verarbeitet und Entpackungen geprüft, aber Archivdateien noch nicht gelöscht.
-
-Erst wenn genügend echte Downloads sauber verarbeitet wurden, sollte `dry_run=false` getestet werden.
-
----
-
-## Roadmap
-
-Kurzfristig:
-
-- separate Fehlerklasse `password_required`
-- bessere Gotify-Meldung für Passwortfehler
-- Status-Ausgabe direkt im Binary
-- Tests für Cleanup mit echten temporären Dateien
-- bessere Config-Fehlermeldungen
-
-Später:
-
-- WebUI
-- Passwortliste über WebUI verwalten
-- manuelles Retry über WebUI
-- Release-Übersicht
-- Integration mit Medienbibliothek
-- optionaler Move nach erfolgreicher Verarbeitung
-
----
-
-## Fehlerklassen
-
-XDCC Extractor klassifiziert typische Archivfehler maschinenlesbar.
-
-Aktuell bekannte Fehlerklassen:
-
-    password_required
-    corrupt_archive
-    missing_part
-    unsupported_method
-    invalid_archive
-    unknown
-
-Beispiel in Logs oder History:
-
-    Fehlerklasse: password_required
-    Grund: Passwort erforderlich oder falsches Passwort
-
-Diese Fehlerklasse wird auch für Gotify genutzt.
-
-Bei `password_required` sendet Gotify eine eigene Meldung:
-
-    XDCC Extractor: Passwort benötigt
-
-Dadurch lassen sich Passwortfehler besser von kaputten oder unvollständigen Archiven unterscheiden.
-
----
-
-## Version anzeigen
-
-Lokal nach einem Build:
-
-```bash
-./target/debug/xdcc-extractor --Version
-
-Im Docker-Container:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --version
-
-Der Status zeigt die Version ebenfalls an:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --status
-
-
----
-
-## Config-Pfad explizit angeben
-
-Der Worker nutzt standardmäßig:
-
-```text
-config.toml
-
-Alternativ kann eine Config explizit angegeben werden:
-
-xdcc-extractor --config /pfad/zur/config.toml
-
-Beispiel lokal nach einem Build:
-
-./target/debug/xdcc-extractor --config config.docker.toml
-
-Auch der Status-Befehl unterstützt --config:
-
-./target/debug/xdcc-extractor --status --config config.docker.toml
-
-
----
-
-## Hilfe anzeigen
-
-Der Worker hat eine kleine CLI-Hilfe:
-
-```bash
-xdcc-extractor --help
-```
-
-Im Docker-Container:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --help
-```
-
-Verfügbare Optionen:
-
-```text
---help, -h              Hilfe anzeigen
---version, -V           Version anzeigen
---status                Status prüfen
---config, -c <PATH>     Config-Datei angeben
-```
-
----
-
-## Release-Checkliste
-
-Vor einem neuen Release oder größeren Update:
-
-```bash
-cat docs/RELEASE_CHECKLIST.md
-
-Die Checkliste enthält:
-
-Git- und Secret-Prüfung
-Rust-Tests
-Docker-Build
-Container-Healthcheck
-Statusprüfung
-Gotify-Test
-Testarchiv
-Tagging
-Rollback-Hinweise
-
----
-
-## Trocken-Scan
-
-Der Worker kann den Download-Ordner scannen, ohne etwas zu entpacken oder zu löschen:
-
-```bash
-xdcc-extractor --scan
-```
-
-Im Docker-Container:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-```
-
-Der Scan zeigt, welche Releases aktuell als Kandidaten erkannt würden.
-
-Er macht kein Cleanup und startet keine Entpackung.
-
----
-
-## History-aware Scan
-
-Der Trocken-Scan zeigt zusätzlich den History-Zustand erkannter Kandidaten:
-
-```text
-[new]     noch nicht verarbeitet
-[done]    bereits erfolgreich verarbeitet
-[failed]  bereits fehlgeschlagen
-
-Beispiel:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-
-Der Scan entpackt nichts und löscht nichts.
-
----
-
-## Release-Checkliste und Failed-Reset
-
-Die Release-Checkliste enthält auch den Umgang mit fehlgeschlagenen Releases:
-
-```bash
-cat docs/RELEASE_CHECKLIST.md
-
-Nützlich nach Passwortänderungen:
-
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --scan
-
-
----
-
-## Einzelnes Release manuell verarbeiten
-
-Ein einzelnes Release kann gezielt verarbeitet werden:
-
-```bash
-xdcc-extractor --process /downloads/Problem.Release.rar
-```
-
-Im Docker-Container:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --process /downloads/Problem.Release.rar
-```
-
-Der Befehl nutzt dieselbe Logik wie der normale Worker:
-
-- Archivprüfung
-- Passwortliste
-- Entpackung
-- Validierung
-- Cleanup-Regeln
-- History `.done` / `.failed`
+XDCC Extractor ist ein Rust-basierter Docker-Worker zum automatischen Erkennen, Prüfen und Entpacken von XDCC-/Botarr-Downloads.
+
+Der Worker überwacht einen Download-Ordner, erkennt fertige Releases, verarbeitet Archive automatisch, verwaltet History/Fehlerstatus und bietet eine geschützte WebUI zur Kontrolle und Konfiguration.
+
+## Features
+
+- Docker-first Betrieb
+- Watcher für neue Downloads
+- Startup-Scan vorhandener Releases
+- Queue-Verarbeitung
+- Archivprüfung vor dem Entpacken
+- Unterstützung für Passwortlisten
+- Retry-Logik bei Fehlern
+- History für erfolgreiche und fehlgeschlagene Releases
+- Cleanup nach erfolgreicher Verarbeitung
 - Gotify-Benachrichtigungen
-
-Wenn ein Release bereits einen `.failed`-Marker hat, zuerst zurücksetzen:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --clear-failed /downloads/Problem.Release.rar
-```
-
----
-
-## Dry-Run-Report
-
-Der Worker kann anzeigen, was bei einer Verarbeitung passieren würde, ohne zu entpacken oder zu löschen:
-
-```bash
-xdcc-extractor --dry-run-report
-```
-
-Im Docker-Container:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-report
-```
-
-Der Report zeigt:
-
-- erkannte Kandidaten
-- History-Zustand
-- Startarchiv
-- Zielordner
-- Cleanup-Kandidaten
-- ob Archive bei `dry_run=false` gelöscht würden
-
-Der Report macht keine Entpackung und kein Cleanup.
-
----
-
-## Dry-Run Safety Check
-
-Vor einem möglichen Wechsel auf `dry_run=false` kann ein Sicherheitscheck ausgeführt werden:
-
-```bash
-xdcc-extractor --dry-run-check
-```
-
-Im Docker-Container:
-
-```bash
-docker exec -it xdcc-extractor /usr/local/bin/xdcc-extractor --dry-run-check
-```
-
-Der Check zeigt:
-
-- ob wichtige Ordner vorhanden sind
-- ob `delete_archives` und `dry_run` gesetzt sind
-- wie viele Kandidaten `new`, `done` oder `failed` sind
-- wie viele Cleanup-Dateien erkannt werden
-- ob unsichere Cleanup-Kandidaten gefunden wurden
-- ob ein Wechsel auf `dry_run=false` aktuell empfohlen wird
-
-Der Check macht keine Entpackung und löscht nichts.
-
----
-
-## WebUI Scan
-
-Das Web-Dashboard zeigt erkannte Kandidaten direkt auf der Startseite.
-
-Angezeigt wird:
-
-```text
-new
-done
-failed
-
-Zusätzlich gibt es eine JSON-API:
-
-/api/scan
-
-Beispiel:
-
-curl -s http://127.0.0.1:8099/api/scan
-
-
----
-
-## WebUI Aktionen
-
-Das Web-Dashboard enthält read-only Aktionen:
-
-- Dashboard aktualisieren
-- Status API öffnen
-- Scan API öffnen
-
-Schreibaktionen wie `clear-failed`, `process` und Config-Bearbeitung werden später ergänzt.
-
----
-
-## WebUI Scan ohne Seitenreload
-
-Der Scan-Bereich im Web-Dashboard kann ohne komplettes Neuladen aktualisiert werden.
-
-Button:
-
-```text
-Scan aktualisieren
-
-Die WebUI ruft dafür intern die JSON-API auf:
-
-/api/scan
-
-Das ist weiterhin read-only und führt keine Verarbeitung aus.
-
----
-
-## WebUI Schreibaktionen
-
-Das Web-Dashboard unterstützt erste manuelle Aktionen:
-
-- `failed` Releases zurücksetzen
-- `new` Releases manuell verarbeiten
-
-Die Aktionen nutzen intern:
-
-```text
-POST /api/clear-failed
-POST /api/process
-
-Die Verarbeitung nutzt dieselbe Logik wie der CLI-Befehl:
-
-xdcc-extractor --process /downloads/Release.rar
-
-Dabei werden berücksichtigt:
-
-Passwortliste
-History
-Gotify
-dry_run
-delete_archives
-Cleanup-Regeln
-
----
-
-## WebUI Fehleransicht
-
-Das Web-Dashboard zeigt eine Übersicht der letzten fehlgeschlagenen Releases.
-
-Angezeigt wird:
-
-- Release-Pfad
-- Fehlversuche
-- Fehlerklasse
-- Fehlergrund
-- Button zum Zurücksetzen des Failed-Markers
-
-API:
-
-```text
-/api/failures
-
-Beispiel:
-
-curl -s http://127.0.0.1:8099/api/failures
-
-
----
-
-## WebUI Einstellungen
-
-Die WebUI enthält eine read-only Einstellungsseite:
-
-```text
-/settings
-
-Zusätzlich gibt es eine JSON-API:
-
-/api/config
-
-Die Config-Ansicht zeigt Betriebswerte wie:
-
-Watch-Ordner
-Output-Ordner
-History-Ordner
-Dry-Run Status
-Delete-Archives Status
-Gotify Status
-Retry- und Startup-Werte
-WebUI Bind-Adresse
-
-Secrets werden nicht angezeigt:
-
-Gotify Token
-Inhalt der Passwortliste
-
-<!-- XDCC_EXTRACTOR_DOCKER_DOCS_START -->
+- WebUI mit Basic Auth
+- Dashboard, Scan, Logs und Settings
+- Manuelle Verarbeitung einzelner Releases
+- Zurücksetzen fehlgeschlagener Releases
+- Editierbare sichere Einstellungen
+- Config-Backups bei Änderungen
+- Docker Healthcheck
+- Publication-Check für öffentliche Releases
 
 ## Docker Quickstart
 
-XDCC Extractor überwacht einen Download-Ordner, erkennt fertige Releases, entpackt Archive automatisch und verwaltet erfolgreiche sowie fehlgeschlagene Verarbeitungen über eine History.
-
-### Voraussetzungen
-
-- Docker und Docker Compose
-- Ein Host-Downloadordner, zum Beispiel `/media/HDD3/XDCC`
-- Optional: Gotify für Benachrichtigungen
-
-### Setup
+### 1. Repository vorbereiten
 
 ~~~bash
 git clone <REPOSITORY_URL>
 cd xdcc-extractor
+~~~
 
+### 2. Config erstellen
+
+~~~bash
 cp config.docker.example.toml config.docker.toml
 cp .env.example .env
 ~~~
 
-Danach `.env` lokal bearbeiten:
+`.env` bearbeiten:
 
 ~~~env
 XDCC_WEB_AUTH_USER=admin
 XDCC_WEB_AUTH_PASSWORD=change-me
 ~~~
 
-Die Datei `.env` darf nicht committed werden.
+`config.docker.toml` anpassen:
 
-### Start
+~~~toml
+[watch]
+directory="/downloads"
+
+[output]
+directory="/downloads/_extracted"
+
+[web]
+enabled=true
+bind="0.0.0.0:8099"
+~~~
+
+Die produktive `config.docker.toml` kann private Pfade, Gotify URL und Token enthalten und darf nicht committed werden.
+
+### 3. Docker starten
 
 ~~~bash
 docker compose build
@@ -1158,26 +72,39 @@ docker compose up -d
 docker compose logs --tail=100
 ~~~
 
-WebUI:
+WebUI öffnen:
 
 ~~~text
 http://<docker-host>:8099
 ~~~
 
-Standardmäßig ist die WebUI per Basic Auth geschützt. Die Zugangsdaten kommen aus `.env`.
+## WebUI
 
-### WebUI Funktionen
+Die WebUI ist per Basic Auth geschützt. Zugangsdaten werden über `.env` gesetzt.
 
-- Dashboard
-- Scan-Ansicht
+Verfügbare Seiten:
+
+~~~text
+/
+ /settings
+/settings/edit
+/logs
+/health
+~~~
+
+Funktionen:
+
+- Status anzeigen
+- Scan aktualisieren
 - Releases manuell verarbeiten
-- Fehlgeschlagene Releases zurücksetzen
+- Failed Releases zurücksetzen
+- Letzte Fehler anzeigen
 - Logs anzeigen
-- Einstellungen anzeigen und bearbeiten
-- Gotify URL und Token setzen
-- Neustart des Workers über die WebUI auslösen
+- Einstellungen bearbeiten
+- Gotify URL und Token neu setzen, ohne bestehende Werte anzuzeigen
+- Worker neu starten
 
-### Wichtige APIs
+## APIs
 
 ~~~text
 /health
@@ -1193,7 +120,22 @@ Standardmäßig ist die WebUI per Basic Auth geschützt. Die Zugangsdaten kommen
 
 `/health` ist absichtlich ohne Auth erreichbar, damit Docker den Healthcheck ausführen kann.
 
-### Sicherheit
+Alle anderen WebUI-/API-Routen sind geschützt.
+
+## Wichtige lokale Pfade
+
+Im Standard-Dockerbetrieb:
+
+~~~text
+/downloads              Download-Ordner im Container
+/downloads/_extracted   Zielordner für entpackte Dateien
+/state/history          History
+/state/config-backups   Config-Backups
+/config/passwords.txt   Optionale Passwortliste
+/app/config.toml        Gemountete Runtime-Config
+~~~
+
+## Sicherheit
 
 Diese Dateien enthalten lokale Daten oder Secrets und dürfen nicht committed werden:
 
@@ -1201,14 +143,27 @@ Diese Dateien enthalten lokale Daten oder Secrets und dürfen nicht committed we
 .env
 config.toml
 config.docker.toml
+config.env
 config/*.txt
 state/
 logs/
+target/
 ~~~
 
-Gotify Token, WebUI Passwort und Passwortlisten-Inhalt werden in der WebUI nicht angezeigt.
+Die WebUI zeigt folgende Werte nicht an:
 
-### Entwicklung
+- Gotify Token
+- Gotify URL
+- WebUI Passwort
+- Inhalt der Passwortliste
+
+Vor einer Veröffentlichung prüfen:
+
+~~~bash
+./scripts/publication-check.sh
+~~~
+
+## Entwicklung
 
 ~~~bash
 cargo fmt
@@ -1216,11 +171,63 @@ cargo test
 cargo build
 ~~~
 
-### Release
+Docker neu bauen:
+
+~~~bash
+docker compose down
+docker compose build
+docker compose up -d
+~~~
+
+Logs anzeigen:
+
+~~~bash
+docker compose logs --tail=100
+~~~
+
+Healthcheck prüfen:
+
+~~~bash
+docker inspect --format='{{.State.Health.Status}}' xdcc-extractor
+~~~
+
+## CLI
+
+~~~bash
+xdcc-extractor --status
+xdcc-extractor --scan
+xdcc-extractor --dry-run-report
+xdcc-extractor --dry-run-check
+xdcc-extractor --clear-failed <PATH>
+xdcc-extractor --process <PATH>
+~~~
+
+## Release
+
+Vor jedem Release:
+
+~~~bash
+cargo fmt
+cargo test
+cargo build
+./scripts/publication-check.sh
+~~~
+
+Version setzen, committen und taggen:
 
 ~~~bash
 git tag -a vX.Y.Z -m "XDCC Extractor vX.Y.Z"
 ~~~
 
-<!-- XDCC_EXTRACTOR_DOCKER_DOCS_END -->
+## Dokumentation
 
+Weitere Dokumente:
+
+~~~text
+docs/DOCKER.md
+docs/RELEASE_CHECKLIST.md
+~~~
+
+## Lizenz
+
+Siehe `LICENSE`.
