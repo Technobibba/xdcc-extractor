@@ -1,6 +1,28 @@
 # Changelog
 
 
+
+## v0.7.0 - 2026-07-07
+
+### Added
+- Gotify URL und Token können über die WebUI neu gesetzt werden, ohne bestehende Werte anzuzeigen
+- Automatische Config-Backups bei WebUI-Settings-Änderungen
+- WebUI-Neustart-Aktion
+- GitHub CI Workflow
+- Dockerignore für sauberen Build Context
+- Public Release Checkliste und Publication-Check Script
+
+### Changed
+- Settings-Seite nutzt freundlichere Beschriftungen
+- Boolean-Werte werden als Badges angezeigt
+- Backup-Meldungen in der WebUI sind verständlicher
+- Öffentliche Doku und Beispielconfigs wurden für GitHub bereinigt
+
+### Security
+- Gotify URL und Token werden in der WebUI nicht angezeigt
+- Runtime-Dateien, Logs, State und lokale Configs werden nicht getrackt
+- Publication-Check prüft auf private URLs, Tokens und sensible Dateien
+
 ## v0.6.0 - 2026-07-07
 
 ### Added
