@@ -10,6 +10,11 @@ RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 
+# xdcc-healthcheck-curl
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV TZ=Europe/Berlin
 
 RUN set -eux; \
