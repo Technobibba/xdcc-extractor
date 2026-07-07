@@ -302,12 +302,14 @@ fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<Pat
         "enabled",
         toml_bool(form.gotify_enabled.is_some()),
     );
-    content = set_toml_value(
-        content,
-        "notifications.gotify",
-        "url",
-        &toml_string(form.gotify_url.trim()),
-    );
+    if !form.gotify_url.trim().is_empty() {
+        content = set_toml_value(
+            content,
+            "notifications.gotify",
+            "url",
+            &toml_string(form.gotify_url.trim()),
+        );
+    }
 
     if !form.gotify_token.trim().is_empty() {
         content = set_toml_value(
@@ -684,15 +686,15 @@ code {{
       <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
       <div class="grid">
         <div class="field full">
-          <label for="gotify_url">Gotify URL</label>
-          <input id="gotify_url" name="gotify_url" type="text" value="{gotify_url}" autocomplete="off">
+          <label for="gotify_url">Gotify URL neu setzen</label>
+          <input id="gotify_url" name="gotify_url" type="text" value="" placeholder="Leer lassen = bestehende URL behalten" autocomplete="off">
         </div>
         <div class="field full">
           <label for="gotify_token">Gotify Token neu setzen</label>
           <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
         </div>
       </div>
-      <div class="small">Token wird nie angezeigt. Ein leerer Token-Wert lässt den bestehenden Token unverändert.</div>
+      <div class="small">Gotify URL und Token werden nie angezeigt. Leere Felder behalten die bestehenden Werte.</div>
 
       <div class="grid">
         <div>
@@ -711,7 +713,7 @@ code {{
       <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Gotify Token wird nicht angezeigt. URL kann bearbeitet werden.</div>
+      <div class="small">Gotify URL und Token werden nicht angezeigt. Beide können im Bearbeiten-Modus neu gesetzt werden.</div>
     </section>
 
     <div class="actions">
@@ -767,7 +769,6 @@ document.addEventListener('DOMContentLoaded', () => {{
         retry_max_delay = config.retry.max_delay,
         startup_scan_existing = checked(config.startup.scan_existing),
         gotify_enabled = checked(config.notifications.gotify.enabled),
-        gotify_url = escape_html(&config.notifications.gotify.url),
         gotify_priority_success = config.notifications.gotify.priority_success,
         gotify_priority_error = config.notifications.gotify.priority_error,
         gotify_notify_on_success = checked(config.notifications.gotify.notify_on_success),
@@ -1471,6 +1472,12 @@ async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         r#"<span class="badge muted">aus</span>"#
     };
 
+    let gotify_url_configured = if state.config.notifications.gotify.url.trim().is_empty() {
+        r#"<span class="badge bad">nein</span>"#
+    } else {
+        r#"<span class="badge ok">ja</span>"#
+    };
+
     let token_configured = if state.config.notifications.gotify.token.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
@@ -1664,7 +1671,7 @@ footer {{
     <section class="card">
       <h2>Gotify</h2>
       <div class="row"><div class="key">Gotify aktiv</div><div class="value">{gotify_enabled}</div></div>
-      <div class="row"><div class="key">Gotify URL</div><div class="value"><code>{gotify_url}</code></div></div>
+      <div class="row"><div class="key">Gotify URL konfiguriert</div><div class="value">{gotify_url_configured}</div></div>
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
@@ -1708,7 +1715,6 @@ footer {{
         max_delay = state.config.retry.max_delay,
         startup_scan = startup_scan,
         gotify_enabled = gotify_enabled,
-        gotify_url = escape(&state.config.notifications.gotify.url),
         token_configured = token_configured,
         priority_success = state.config.notifications.gotify.priority_success,
         priority_error = state.config.notifications.gotify.priority_error,
