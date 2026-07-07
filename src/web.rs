@@ -8,7 +8,13 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use std::{fs, net::SocketAddr, path::Path, sync::Arc};
+use std::{
+    fs,
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::SystemTime,
+};
 use tracing::{info, warn};
 
 #[derive(Clone)]
@@ -49,6 +55,7 @@ pub fn start(config: Config) -> Result<()> {
                 .route("/health", get(health))
                 .route("/api/status", get(api_status))
                 .route("/api/scan", get(api_scan))
+                .route("/api/failures", get(api_failures))
                 .route("/api/clear-failed", post(api_clear_failed))
                 .route("/api/process", post(api_process))
                 .route("/assets/app.js", get(app_js))
@@ -82,20 +89,22 @@ async fn app_js() -> impl IntoResponse {
         [("content-type", "application/javascript; charset=utf-8")],
         r#"
 document.addEventListener('DOMContentLoaded', () => {
-  const refreshButton = document.getElementById('refresh-scan');
-  const target = document.getElementById('scan-content');
+  const refreshScanButton = document.getElementById('refresh-scan');
+  const refreshFailuresButton = document.getElementById('refresh-failures');
 
-  if (!target) {
-    return;
-  }
-
-  if (refreshButton) {
-    refreshButton.addEventListener('click', async () => {
-      await refreshScan(refreshButton);
+  if (refreshScanButton) {
+    refreshScanButton.addEventListener('click', async () => {
+      await refreshScan(refreshScanButton);
     });
   }
 
-  target.addEventListener('click', async (event) => {
+  if (refreshFailuresButton) {
+    refreshFailuresButton.addEventListener('click', async () => {
+      await refreshFailures(refreshFailuresButton);
+    });
+  }
+
+  document.addEventListener('click', async (event) => {
     const button = event.target.closest('button[data-action][data-path]');
 
     if (!button) {
@@ -151,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       await refreshScan();
+      await refreshFailures();
     } catch (error) {
       window.alert(`Aktion fehlgeschlagen: ${String(error)}`);
     } finally {
@@ -182,6 +192,36 @@ async function refreshScan(button) {
     target.innerHTML = renderScan(data);
   } catch (error) {
     target.innerHTML = `<div class="error">Scan konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+}
+
+async function refreshFailures(button) {
+  const target = document.getElementById('failure-content');
+
+  if (!target) {
+    return;
+  }
+
+  let oldText = null;
+
+  if (button) {
+    button.disabled = true;
+    oldText = button.textContent;
+    button.textContent = 'Aktualisiere...';
+  }
+
+  try {
+    const response = await fetch('/api/failures', { cache: 'no-store' });
+    const data = await response.json();
+
+    target.innerHTML = renderFailures(data);
+  } catch (error) {
+    target.innerHTML = `<div class="error">Fehlerliste konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
   } finally {
     if (button) {
       button.disabled = false;
@@ -241,6 +281,50 @@ function renderScan(data) {
 
   if (candidates.length > 25) {
     html += `<div class="small">Weitere ${candidates.length - 25} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>`;
+  }
+
+  html += `</div>`;
+
+  return html;
+}
+
+function renderFailures(data) {
+  if (!data.ok) {
+    return `<div class="error">Fehler-API: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
+  }
+
+  const failures = data.failures || [];
+
+  let html = `
+    <div class="scan-summary">
+      <span class="badge bad">failed: ${failures.length}</span>
+      <span class="badge muted">Aktualisiert: ${escapeHtml(new Date().toLocaleTimeString())}</span>
+    </div>
+  `;
+
+  if (failures.length === 0) {
+    html += `<div class="small">Keine fehlgeschlagenen Releases vorhanden.</div>`;
+    return html;
+  }
+
+  html += `<div class="failure-list">`;
+
+  for (const failure of failures) {
+    const path = failure.path || '';
+
+    html += `
+      <div class="failure-row">
+        <div>
+          <span class="badge bad">${escapeHtml(failure.error_class || 'failed')}</span>
+          <span class="small">Fehlversuche: ${escapeHtml(String(failure.attempts || 0))}</span>
+        </div>
+        <div class="scan-path">${escapeHtml(path)}</div>
+        <div class="small">${escapeHtml(failure.reason || 'Kein Grund gefunden')}</div>
+        <div class="scan-actions">
+          <button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapeHtml(path)}">Failed zurücksetzen</button>
+        </div>
+      </div>
+    `;
   }
 
   html += `</div>`;
@@ -326,6 +410,35 @@ async fn api_scan(State(state): State<Arc<AppState>>) -> Json<serde_json::Value>
     }
 }
 
+async fn api_failures(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    match failure_entries(&state.config.history.directory, 25) {
+        Ok(entries) => {
+            let items = entries
+                .iter()
+                .map(|entry| {
+                    json!({
+                        "marker": entry.marker.display().to_string(),
+                        "path": entry.path,
+                        "attempts": entry.attempts,
+                        "error_class": entry.error_class,
+                        "reason": entry.reason,
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            Json(json!({
+                "ok": true,
+                "count": items.len(),
+                "failures": items,
+            }))
+        }
+        Err(err) => Json(json!({
+            "ok": false,
+            "error": format!("{:?}", err),
+        })),
+    }
+}
+
 async fn api_clear_failed(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<PathRequest>,
@@ -376,6 +489,7 @@ async fn api_process(
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let history = history_counts(&state.config.history.directory);
     let scan_html = scan_summary_html(&state.config);
+    let failures_html = failures_html(&state.config);
 
     let dry_run_badge = if state.config.extract.dry_run {
         r#"<span class="badge ok">aktiv</span>"#
@@ -505,6 +619,16 @@ h1 {{
 }}
 .scan-actions {{
   text-align: right;
+}}
+.failure-list {{
+  display: grid;
+  gap: 12px;
+}}
+.failure-row {{
+  display: grid;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
 }}
 .error {{
   color: var(--bad);
@@ -644,6 +768,16 @@ code {{
         {scan_html}
       </div>
     </section>
+
+    <section class="card wide">
+      <div class="card-head">
+        <h2>Letzte Fehler</h2>
+        <button id="refresh-failures" class="button" type="button">Fehler aktualisieren</button>
+      </div>
+      <div id="failure-content">
+        {failures_html}
+      </div>
+    </section>
   </div>
 
   <footer>
@@ -664,6 +798,7 @@ code {{
         output_dir = escape(&state.config.output.directory),
         allow_root_archives = state.config.watch.allow_root_archives,
         scan_html = scan_html,
+        failures_html = failures_html,
     );
 
     Html(html)
@@ -754,6 +889,174 @@ fn action_button_html(state: &str, path: &str) -> String {
         ),
         _ => String::new(),
     }
+}
+
+#[derive(Debug, Clone)]
+struct FailureEntry {
+    marker: PathBuf,
+    path: String,
+    attempts: u64,
+    error_class: String,
+    reason: String,
+}
+
+fn failures_html(config: &Config) -> String {
+    let entries = match failure_entries(&config.history.directory, 10) {
+        Ok(entries) => entries,
+        Err(err) => {
+            return format!(
+                r#"<div class="error">Fehlerliste konnte nicht geladen werden: {}</div>"#,
+                escape(&format!("{:?}", err))
+            );
+        }
+    };
+
+    let mut html = format!(
+        r#"<div class="scan-summary"><span class="badge bad">failed: {}</span></div>"#,
+        entries.len()
+    );
+
+    if entries.is_empty() {
+        html.push_str(r#"<div class="small">Keine fehlgeschlagenen Releases vorhanden.</div>"#);
+        return html;
+    }
+
+    html.push_str(r#"<div class="failure-list">"#);
+
+    for entry in entries {
+        html.push_str(&format!(
+            r#"<div class="failure-row">
+<div><span class="badge bad">{}</span> <span class="small">Fehlversuche: {}</span></div>
+<div class="scan-path">{}</div>
+<div class="small">{}</div>
+<div class="scan-actions"><button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button></div>
+</div>"#,
+            escape(&entry.error_class),
+            entry.attempts,
+            escape(&entry.path),
+            escape(&entry.reason),
+            escape(&entry.path),
+        ));
+    }
+
+    html.push_str("</div>");
+    html
+}
+
+fn failure_entries(history_dir: &str, limit: usize) -> Result<Vec<FailureEntry>> {
+    let path = Path::new(history_dir);
+
+    if !path.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut entries = Vec::new();
+
+    for entry in fs::read_dir(path)
+        .with_context(|| format!("Konnte History-Ordner nicht lesen: {}", history_dir))?
+    {
+        let entry = entry?;
+        let marker = entry.path();
+        let file_name = entry.file_name().to_string_lossy().to_string();
+
+        if !file_name.ends_with(".failed") {
+            continue;
+        }
+
+        let modified = entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH);
+
+        let content = fs::read_to_string(&marker).unwrap_or_default();
+        let parsed = parse_failed_marker(&content, &file_name);
+
+        entries.push((
+            modified,
+            FailureEntry {
+                marker,
+                path: parsed.0,
+                attempts: parsed.1,
+                error_class: parsed.2,
+                reason: parsed.3,
+            },
+        ));
+    }
+
+    entries.sort_by(|a, b| b.0.cmp(&a.0));
+
+    Ok(entries
+        .into_iter()
+        .take(limit)
+        .map(|(_, entry)| entry)
+        .collect())
+}
+
+fn parse_failed_marker(content: &str, fallback_name: &str) -> (String, u64, String, String) {
+    let mut release = String::new();
+    let mut attempts = 0;
+    let mut error_class = "failed".to_string();
+    let mut reason = String::new();
+
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if let Some(value) = trimmed.strip_prefix("release=") {
+            release = value.trim().to_string();
+        }
+
+        if let Some(value) = trimmed.strip_prefix("attempts=") {
+            attempts = value.trim().parse().unwrap_or(0);
+        }
+
+        if let Some(value) = trimmed.strip_prefix("Fehlerklasse:") {
+            error_class = value.trim().to_string();
+        }
+
+        if let Some(value) = trimmed.strip_prefix("Grund:") {
+            reason = value.trim().to_string();
+        }
+    }
+
+    if release.is_empty() {
+        release = fallback_name.to_string();
+    }
+
+    if reason.is_empty() {
+        reason = first_non_empty_error_line(content)
+            .unwrap_or_else(|| "Kein Grund gefunden".to_string());
+    }
+
+    (release, attempts, error_class, reason)
+}
+
+fn first_non_empty_error_line(content: &str) -> Option<String> {
+    for line in content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if trimmed.starts_with("release=")
+            || trimmed.starts_with("status=")
+            || trimmed.starts_with("attempts=")
+            || trimmed.starts_with("error=")
+        {
+            continue;
+        }
+
+        let mut value = trimmed.to_string();
+
+        if value.chars().count() > 180 {
+            value = value.chars().take(180).collect();
+            value.push_str("...");
+        }
+
+        return Some(value);
+    }
+
+    None
 }
 
 fn history_counts(history_dir: &str) -> (usize, usize) {

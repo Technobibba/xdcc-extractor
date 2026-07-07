@@ -1065,3 +1065,27 @@ Gotify
 dry_run
 delete_archives
 Cleanup-Regeln
+
+---
+
+## WebUI Fehleransicht
+
+Das Web-Dashboard zeigt eine Übersicht der letzten fehlgeschlagenen Releases.
+
+Angezeigt wird:
+
+- Release-Pfad
+- Fehlversuche
+- Fehlerklasse
+- Fehlergrund
+- Button zum Zurücksetzen des Failed-Markers
+
+API:
+
+```text
+/api/failures
+
+Beispiel:
+
+curl -s http://127.0.0.1:8099/api/failures
+
