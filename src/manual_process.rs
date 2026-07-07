@@ -44,7 +44,7 @@ pub fn validate_process_args() -> Result<()> {
     Ok(())
 }
 
-fn run_process(config_path: &str, config: &Config, release: &Path) -> Result<()> {
+pub fn run_process(config_path: &str, config: &Config, release: &Path) -> Result<()> {
     println!("== XDCC Extractor Manual Process ==");
     println!();
     println!("Config:");

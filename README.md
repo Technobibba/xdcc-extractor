@@ -1037,3 +1037,31 @@ Die WebUI ruft dafür intern die JSON-API auf:
 /api/scan
 
 Das ist weiterhin read-only und führt keine Verarbeitung aus.
+
+---
+
+## WebUI Schreibaktionen
+
+Das Web-Dashboard unterstützt erste manuelle Aktionen:
+
+- `failed` Releases zurücksetzen
+- `new` Releases manuell verarbeiten
+
+Die Aktionen nutzen intern:
+
+```text
+POST /api/clear-failed
+POST /api/process
+
+Die Verarbeitung nutzt dieselbe Logik wie der CLI-Befehl:
+
+xdcc-extractor --process /downloads/Release.rar
+
+Dabei werden berücksichtigt:
+
+Passwortliste
+History
+Gotify
+dry_run
+delete_archives
+Cleanup-Regeln

@@ -1,11 +1,12 @@
-use crate::{config::Config, scan};
+use crate::{config::Config, history::History, manual_process, scan};
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
     extract::State,
     response::{Html, IntoResponse},
-    routing::get,
+    routing::{get, post},
 };
+use serde::Deserialize;
 use serde_json::json;
 use std::{fs, net::SocketAddr, path::Path, sync::Arc};
 use tracing::{info, warn};
@@ -13,6 +14,11 @@ use tracing::{info, warn};
 #[derive(Clone)]
 struct AppState {
     config: Config,
+}
+
+#[derive(Debug, Deserialize)]
+struct PathRequest {
+    path: String,
 }
 
 pub fn start(config: Config) -> Result<()> {
@@ -43,6 +49,8 @@ pub fn start(config: Config) -> Result<()> {
                 .route("/health", get(health))
                 .route("/api/status", get(api_status))
                 .route("/api/scan", get(api_scan))
+                .route("/api/clear-failed", post(api_clear_failed))
+                .route("/api/process", post(api_process))
                 .route("/assets/app.js", get(app_js))
                 .with_state(state);
 
@@ -74,31 +82,113 @@ async fn app_js() -> impl IntoResponse {
         [("content-type", "application/javascript; charset=utf-8")],
         r#"
 document.addEventListener('DOMContentLoaded', () => {
-  const button = document.getElementById('refresh-scan');
+  const refreshButton = document.getElementById('refresh-scan');
   const target = document.getElementById('scan-content');
 
-  if (!button || !target) {
+  if (!target) {
     return;
   }
 
-  button.addEventListener('click', async () => {
+  if (refreshButton) {
+    refreshButton.addEventListener('click', async () => {
+      await refreshScan(refreshButton);
+    });
+  }
+
+  target.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-action][data-path]');
+
+    if (!button) {
+      return;
+    }
+
+    const action = button.dataset.action;
+    const path = button.dataset.path;
+
+    if (!action || !path) {
+      return;
+    }
+
+    let endpoint = null;
+    let confirmText = null;
+
+    if (action === 'clear-failed') {
+      endpoint = '/api/clear-failed';
+      confirmText = `Failed-Marker zurücksetzen?\n\n${path}`;
+    }
+
+    if (action === 'process') {
+      endpoint = '/api/process';
+      confirmText = `Release jetzt manuell verarbeiten?\n\n${path}`;
+    }
+
+    if (!endpoint) {
+      return;
+    }
+
+    if (!window.confirm(confirmText)) {
+      return;
+    }
+
     button.disabled = true;
     const oldText = button.textContent;
-    button.textContent = 'Aktualisiere...';
+    button.textContent = 'Läuft...';
 
     try {
-      const response = await fetch('/api/scan', { cache: 'no-store' });
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ path })
+      });
+
       const data = await response.json();
 
-      target.innerHTML = renderScan(data);
+      if (!data.ok) {
+        window.alert(data.error || 'Aktion fehlgeschlagen');
+        return;
+      }
+
+      await refreshScan();
     } catch (error) {
-      target.innerHTML = `<div class="error">Scan konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
+      window.alert(`Aktion fehlgeschlagen: ${String(error)}`);
     } finally {
       button.disabled = false;
       button.textContent = oldText;
     }
   });
 });
+
+async function refreshScan(button) {
+  const target = document.getElementById('scan-content');
+
+  if (!target) {
+    return;
+  }
+
+  let oldText = null;
+
+  if (button) {
+    button.disabled = true;
+    oldText = button.textContent;
+    button.textContent = 'Aktualisiere...';
+  }
+
+  try {
+    const response = await fetch('/api/scan', { cache: 'no-store' });
+    const data = await response.json();
+
+    target.innerHTML = renderScan(data);
+  } catch (error) {
+    target.innerHTML = `<div class="error">Scan konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+}
 
 function renderScan(data) {
   if (!data.ok) {
@@ -138,11 +228,13 @@ function renderScan(data) {
   for (const candidate of candidates.slice(0, 25)) {
     const state = candidate.state || 'unknown';
     const cssClass = stateClass(state);
+    const path = candidate.path || '';
 
     html += `
       <div class="scan-row">
         <span class="badge ${cssClass}">${escapeHtml(state)}</span>
-        <span class="scan-path">${escapeHtml(candidate.path || '')}</span>
+        <span class="scan-path">${escapeHtml(path)}</span>
+        <span class="scan-actions">${actionButton(state, path)}</span>
       </div>
     `;
   }
@@ -154,6 +246,20 @@ function renderScan(data) {
   html += `</div>`;
 
   return html;
+}
+
+function actionButton(state, path) {
+  const escapedPath = escapeHtml(path);
+
+  if (state === 'failed') {
+    return `<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapedPath}">Failed zurücksetzen</button>`;
+  }
+
+  if (state === 'new') {
+    return `<button class="button small-button" type="button" data-action="process" data-path="${escapedPath}">Verarbeiten</button>`;
+  }
+
+  return '';
 }
 
 function stateClass(state) {
@@ -213,6 +319,53 @@ async fn api_scan(State(state): State<Arc<AppState>>) -> Json<serde_json::Value>
                 "candidates": items,
             }))
         }
+        Err(err) => Json(json!({
+            "ok": false,
+            "error": format!("{:?}", err),
+        })),
+    }
+}
+
+async fn api_clear_failed(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<PathRequest>,
+) -> Json<serde_json::Value> {
+    let path = Path::new(&payload.path);
+
+    let history = match History::new(&state.config.history.directory) {
+        Ok(history) => history,
+        Err(err) => {
+            return Json(json!({
+                "ok": false,
+                "error": format!("{:?}", err),
+            }));
+        }
+    };
+
+    match history.clear_failed(path) {
+        Ok(removed) => Json(json!({
+            "ok": true,
+            "removed": removed,
+            "path": payload.path,
+        })),
+        Err(err) => Json(json!({
+            "ok": false,
+            "error": format!("{:?}", err),
+        })),
+    }
+}
+
+async fn api_process(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<PathRequest>,
+) -> Json<serde_json::Value> {
+    let path = Path::new(&payload.path);
+
+    match manual_process::run_process("web", &state.config, path) {
+        Ok(()) => Json(json!({
+            "ok": true,
+            "path": payload.path,
+        })),
         Err(err) => Json(json!({
             "ok": false,
             "error": format!("{:?}", err),
@@ -339,7 +492,7 @@ h1 {{
 }}
 .scan-row {{
   display: grid;
-  grid-template-columns: 88px 1fr;
+  grid-template-columns: 88px 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 8px 0;
@@ -350,35 +503,11 @@ h1 {{
   font-size: 14px;
   word-break: break-all;
 }}
+.scan-actions {{
+  text-align: right;
+}}
 .error {{
   color: var(--bad);
-}}
-button.button {{
-  cursor: pointer;
-  font-family: inherit;
-}}
-button.button:disabled {{
-  opacity: .65;
-  cursor: wait;
-}}
-.card-head {{
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}}
-.card-head h2 {{
-  margin: 0;
-}}
-
-footer {{
-  margin-top: 28px;
-  color: var(--muted);
-  font-size: 13px;
-}}
-code {{
-  color: #cfd7e6;
 }}
 .actions {{
   display: flex;
@@ -398,6 +527,47 @@ code {{
 }}
 .button:hover {{
   background: #2b3142;
+}}
+button.button {{
+  cursor: pointer;
+  font-family: inherit;
+}}
+button.button:disabled {{
+  opacity: .65;
+  cursor: wait;
+}}
+.small-button {{
+  padding: 7px 10px;
+  font-size: 13px;
+}}
+.danger-button {{
+  border-color: rgba(255, 92, 92, .35);
+}}
+.card-head {{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}}
+.card-head h2 {{
+  margin: 0;
+}}
+footer {{
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 13px;
+}}
+code {{
+  color: #cfd7e6;
+}}
+@media (max-width: 720px) {{
+  .scan-row {{
+    grid-template-columns: 1fr;
+  }}
+  .scan-actions {{
+    text-align: left;
+  }}
 }}
 </style>
 </head>
@@ -460,6 +630,8 @@ code {{
       <h2>API</h2>
       <div class="small"><code>/api/status</code></div>
       <div class="small"><code>/api/scan</code></div>
+      <div class="small"><code>/api/clear-failed</code></div>
+      <div class="small"><code>/api/process</code></div>
       <div class="small"><code>/health</code></div>
     </section>
 
@@ -475,7 +647,7 @@ code {{
   </div>
 
   <footer>
-    Read-only Dashboard. Schreibaktionen wie Process, Clear-Failed und Config-Bearbeitung kommen später.
+    Dashboard mit manuellen Aktionen. Verarbeitung respektiert dry_run, delete_archives, History und Gotify.
   </footer>
 </main>
 <script src="/assets/app.js"></script>
@@ -551,10 +723,11 @@ fn scan_summary_html(config: &Config) -> String {
         };
 
         html.push_str(&format!(
-            r#"<div class="scan-row"><span class="badge {}">{}</span><span class="scan-path">{}</span></div>"#,
+            r#"<div class="scan-row"><span class="badge {}">{}</span><span class="scan-path">{}</span><span class="scan-actions">{}</span></div>"#,
             class,
             escape(label),
-            escape(&candidate.path.display().to_string())
+            escape(&candidate.path.display().to_string()),
+            action_button_html(label, &candidate.path.display().to_string())
         ));
     }
 
@@ -567,6 +740,20 @@ fn scan_summary_html(config: &Config) -> String {
 
     html.push_str("</div>");
     html
+}
+
+fn action_button_html(state: &str, path: &str) -> String {
+    match state {
+        "failed" => format!(
+            r#"<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button>"#,
+            escape(path)
+        ),
+        "new" => format!(
+            r#"<button class="button small-button" type="button" data-action="process" data-path="{}">Verarbeiten</button>"#,
+            escape(path)
+        ),
+        _ => String::new(),
+    }
 }
 
 fn history_counts(history_dir: &str) -> (usize, usize) {
@@ -600,4 +787,5 @@ fn escape(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+        .replace('\'', "&#039;")
 }
