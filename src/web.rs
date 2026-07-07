@@ -1441,6 +1441,36 @@ async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {
         r#"<span class="badge muted">aus</span>"#
     };
 
+    let allow_root_archives = if state.config.watch.allow_root_archives {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_success = if state.config.notifications.gotify.notify_on_success {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_error = if state.config.notifications.gotify.notify_on_error {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_every_error = if state.config.notifications.gotify.notify_on_every_error {
+        r#"<span class="badge warn">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let web_enabled = if state.config.web.enabled {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
     let token_configured = if state.config.notifications.gotify.token.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
@@ -1646,7 +1676,7 @@ footer {{
 
     <section class="card">
       <h2>WebUI</h2>
-      <div class="row"><div class="key">enabled</div><div class="value">{web_enabled}</div></div>
+      <div class="row"><div class="key">WebUI aktiv</div><div class="value">{web_enabled}</div></div>
       <div class="row"><div class="key">Adresse / Port</div><div class="value"><code>{web_bind}</code></div></div>
     </section>
 
@@ -1666,7 +1696,7 @@ footer {{
         version = env!("CARGO_PKG_VERSION"),
         watch_dir = escape(&state.config.watch.directory),
         stable_after = state.config.watch.stable_after,
-        allow_root_archives = state.config.watch.allow_root_archives,
+        allow_root_archives = allow_root_archives,
         dry_run = dry_run,
         delete_archives = delete_archives,
         keep_failed = keep_failed,
@@ -1682,11 +1712,11 @@ footer {{
         token_configured = token_configured,
         priority_success = state.config.notifications.gotify.priority_success,
         priority_error = state.config.notifications.gotify.priority_error,
-        notify_on_success = state.config.notifications.gotify.notify_on_success,
-        notify_on_error = state.config.notifications.gotify.notify_on_error,
-        notify_on_every_error = state.config.notifications.gotify.notify_on_every_error,
+        notify_on_success = notify_on_success,
+        notify_on_error = notify_on_error,
+        notify_on_every_error = notify_on_every_error,
         notify_after_attempts = state.config.notifications.gotify.notify_after_attempts,
-        web_enabled = state.config.web.enabled,
+        web_enabled = web_enabled,
         web_bind = escape(&state.config.web.bind),
     );
 
