@@ -52,8 +52,10 @@ pub fn start(config: Config) -> Result<()> {
 
             let app = Router::new()
                 .route("/", get(index))
+                .route("/settings", get(settings))
                 .route("/health", get(health))
                 .route("/api/status", get(api_status))
+                .route("/api/config", get(api_config))
                 .route("/api/scan", get(api_scan))
                 .route("/api/failures", get(api_failures))
                 .route("/api/clear-failed", post(api_clear_failed))
@@ -364,6 +366,58 @@ function escapeHtml(value) {
     )
 }
 
+async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
+    Json(json!({
+        "ok": true,
+        "version": env!("CARGO_PKG_VERSION"),
+        "watch": {
+            "directory": state.config.watch.directory,
+            "stable_after": state.config.watch.stable_after,
+            "allow_root_archives": state.config.watch.allow_root_archives,
+        },
+        "extract": {
+            "delete_archives": state.config.extract.delete_archives,
+            "dry_run": state.config.extract.dry_run,
+            "keep_failed": state.config.extract.keep_failed,
+            "password_file_configured": !state.config.extract.password_file.trim().is_empty(),
+        },
+        "output": {
+            "directory": state.config.output.directory,
+        },
+        "history": {
+            "directory": state.config.history.directory,
+        },
+        "retry": {
+            "base_delay": state.config.retry.base_delay,
+            "max_delay": state.config.retry.max_delay,
+        },
+        "startup": {
+            "scan_existing": state.config.startup.scan_existing,
+        },
+        "notifications": {
+            "gotify": {
+                "enabled": state.config.notifications.gotify.enabled,
+                "url_configured": !state.config.notifications.gotify.url.trim().is_empty(),
+                "token_configured": !state.config.notifications.gotify.token.trim().is_empty(),
+                "priority_success": state.config.notifications.gotify.priority_success,
+                "priority_error": state.config.notifications.gotify.priority_error,
+                "notify_on_success": state.config.notifications.gotify.notify_on_success,
+                "notify_on_error": state.config.notifications.gotify.notify_on_error,
+                "notify_on_every_error": state.config.notifications.gotify.notify_on_every_error,
+                "notify_after_attempts": state.config.notifications.gotify.notify_after_attempts,
+            }
+        },
+        "web": {
+            "enabled": state.config.web.enabled,
+            "bind": state.config.web.bind,
+        },
+        "secrets": {
+            "gotify_token_visible": false,
+            "password_file_content_visible": false,
+        }
+    }))
+}
+
 async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
     let history = history_counts(&state.config.history.directory);
 
@@ -484,6 +538,287 @@ async fn api_process(
             "error": format!("{:?}", err),
         })),
     }
+}
+
+async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let gotify_enabled = if state.config.notifications.gotify.enabled {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let dry_run = if state.config.extract.dry_run {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge warn">aus</span>"#
+    };
+
+    let delete_archives = if state.config.extract.delete_archives {
+        r#"<span class="badge warn">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let keep_failed = if state.config.extract.keep_failed {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let startup_scan = if state.config.startup.scan_existing {
+        r#"<span class="badge warn">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let token_configured = if state.config.notifications.gotify.token.trim().is_empty() {
+        r#"<span class="badge bad">nein</span>"#
+    } else {
+        r#"<span class="badge ok">ja</span>"#
+    };
+
+    let password_file_configured = if state.config.extract.password_file.trim().is_empty() {
+        r#"<span class="badge muted">nein</span>"#
+    } else {
+        r#"<span class="badge ok">ja</span>"#
+    };
+
+    let html = format!(
+        r#"<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XDCC Extractor Einstellungen</title>
+<style>
+:root {{
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --text: #e6e6e6;
+  --muted: #9aa4b2;
+  --border: #2a2f3a;
+  --ok: #25c26e;
+  --warn: #f0a020;
+  --bad: #ff5c5c;
+}}
+body {{
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}}
+main {{
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}}
+h1 {{
+  margin: 0 0 6px;
+  font-size: 32px;
+}}
+.sub {{
+  color: var(--muted);
+  margin-bottom: 28px;
+}}
+.grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}}
+.card {{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}}
+.card.wide {{
+  grid-column: 1 / -1;
+}}
+.card h2 {{
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: var(--muted);
+  font-weight: 600;
+}}
+.row {{
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}}
+.row:first-of-type {{
+  border-top: 0;
+}}
+.key {{
+  color: var(--muted);
+  font-size: 14px;
+}}
+.value {{
+  font-size: 14px;
+  word-break: break-word;
+}}
+.badge {{
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 14px;
+}}
+.badge.ok {{
+  background: rgba(37, 194, 110, .15);
+  color: var(--ok);
+}}
+.badge.warn {{
+  background: rgba(240, 160, 32, .15);
+  color: var(--warn);
+}}
+.badge.bad {{
+  background: rgba(255, 92, 92, .15);
+  color: var(--bad);
+}}
+.badge.muted {{
+  background: rgba(154, 164, 178, .12);
+  color: var(--muted);
+}}
+.actions {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}}
+.button {{
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #222735;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+}}
+.button:hover {{
+  background: #2b3142;
+}}
+code {{
+  color: #cfd7e6;
+}}
+footer {{
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 13px;
+}}
+@media (max-width: 720px) {{
+  .row {{
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }}
+}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Einstellungen</h1>
+  <div class="sub">XDCC Extractor Version {version}</div>
+
+  <div class="actions">
+    <a class="button" href="/">Zurück zum Dashboard</a>
+    <a class="button" href="/api/config" target="_blank" rel="noopener">Config API öffnen</a>
+    <a class="button" href="/api/status" target="_blank" rel="noopener">Status API öffnen</a>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Watch</h2>
+      <div class="row"><div class="key">directory</div><div class="value"><code>{watch_dir}</code></div></div>
+      <div class="row"><div class="key">stable_after</div><div class="value">{stable_after}s</div></div>
+      <div class="row"><div class="key">allow_root_archives</div><div class="value">{allow_root_archives}</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Extract</h2>
+      <div class="row"><div class="key">dry_run</div><div class="value">{dry_run}</div></div>
+      <div class="row"><div class="key">delete_archives</div><div class="value">{delete_archives}</div></div>
+      <div class="row"><div class="key">keep_failed</div><div class="value">{keep_failed}</div></div>
+      <div class="row"><div class="key">password_file</div><div class="value">{password_file_configured} <span class="key">Pfad wird angezeigt, Inhalt nicht</span></div></div>
+      <div class="row"><div class="key">password_file_path</div><div class="value"><code>{password_file}</code></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Output / History</h2>
+      <div class="row"><div class="key">output.directory</div><div class="value"><code>{output_dir}</code></div></div>
+      <div class="row"><div class="key">history.directory</div><div class="value"><code>{history_dir}</code></div></div>
+    </section>
+
+    <section class="card">
+      <h2>Retry / Startup</h2>
+      <div class="row"><div class="key">base_delay</div><div class="value">{base_delay}s</div></div>
+      <div class="row"><div class="key">max_delay</div><div class="value">{max_delay}s</div></div>
+      <div class="row"><div class="key">scan_existing</div><div class="value">{startup_scan}</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Gotify</h2>
+      <div class="row"><div class="key">enabled</div><div class="value">{gotify_enabled}</div></div>
+      <div class="row"><div class="key">url</div><div class="value"><code>{gotify_url}</code></div></div>
+      <div class="row"><div class="key">token_configured</div><div class="value">{token_configured}</div></div>
+      <div class="row"><div class="key">priority_success</div><div class="value">{priority_success}</div></div>
+      <div class="row"><div class="key">priority_error</div><div class="value">{priority_error}</div></div>
+      <div class="row"><div class="key">notify_on_success</div><div class="value">{notify_on_success}</div></div>
+      <div class="row"><div class="key">notify_on_error</div><div class="value">{notify_on_error}</div></div>
+      <div class="row"><div class="key">notify_on_every_error</div><div class="value">{notify_on_every_error}</div></div>
+      <div class="row"><div class="key">notify_after_attempts</div><div class="value">{notify_after_attempts}</div></div>
+    </section>
+
+    <section class="card">
+      <h2>WebUI</h2>
+      <div class="row"><div class="key">enabled</div><div class="value">{web_enabled}</div></div>
+      <div class="row"><div class="key">bind</div><div class="value"><code>{web_bind}</code></div></div>
+    </section>
+
+    <section class="card wide">
+      <h2>Secrets</h2>
+      <div class="row"><div class="key">Gotify Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
+      <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt nicht sichtbar</span></div></div>
+    </section>
+  </div>
+
+  <footer>
+    Diese Seite ist read-only. Config-Schreibfunktionen bauen wir später bewusst separat.
+  </footer>
+</main>
+</body>
+</html>"#,
+        version = env!("CARGO_PKG_VERSION"),
+        watch_dir = escape(&state.config.watch.directory),
+        stable_after = state.config.watch.stable_after,
+        allow_root_archives = state.config.watch.allow_root_archives,
+        dry_run = dry_run,
+        delete_archives = delete_archives,
+        keep_failed = keep_failed,
+        password_file_configured = password_file_configured,
+        password_file = escape(&state.config.extract.password_file),
+        output_dir = escape(&state.config.output.directory),
+        history_dir = escape(&state.config.history.directory),
+        base_delay = state.config.retry.base_delay,
+        max_delay = state.config.retry.max_delay,
+        startup_scan = startup_scan,
+        gotify_enabled = gotify_enabled,
+        gotify_url = escape(&state.config.notifications.gotify.url),
+        token_configured = token_configured,
+        priority_success = state.config.notifications.gotify.priority_success,
+        priority_error = state.config.notifications.gotify.priority_error,
+        notify_on_success = state.config.notifications.gotify.notify_on_success,
+        notify_on_error = state.config.notifications.gotify.notify_on_error,
+        notify_on_every_error = state.config.notifications.gotify.notify_on_every_error,
+        notify_after_attempts = state.config.notifications.gotify.notify_after_attempts,
+        web_enabled = state.config.web.enabled,
+        web_bind = escape(&state.config.web.bind),
+    );
+
+    Html(html)
 }
 
 async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -711,6 +1046,7 @@ code {{
       <h2>Aktionen</h2>
       <div class="actions">
         <a class="button" href="/">Aktualisieren</a>
+        <a class="button" href="/settings">Einstellungen</a>
         <a class="button" href="/api/status" target="_blank" rel="noopener">Status API</a>
         <a class="button" href="/api/scan" target="_blank" rel="noopener">Scan API</a>
       </div>
@@ -753,6 +1089,7 @@ code {{
     <section class="card">
       <h2>API</h2>
       <div class="small"><code>/api/status</code></div>
+      <div class="small"><code>/api/config</code></div>
       <div class="small"><code>/api/scan</code></div>
       <div class="small"><code>/api/clear-failed</code></div>
       <div class="small"><code>/api/process</code></div>

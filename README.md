@@ -1089,3 +1089,32 @@ Beispiel:
 
 curl -s http://127.0.0.1:8099/api/failures
 
+
+---
+
+## WebUI Einstellungen
+
+Die WebUI enthält eine read-only Einstellungsseite:
+
+```text
+/settings
+
+Zusätzlich gibt es eine JSON-API:
+
+/api/config
+
+Die Config-Ansicht zeigt Betriebswerte wie:
+
+Watch-Ordner
+Output-Ordner
+History-Ordner
+Dry-Run Status
+Delete-Archives Status
+Gotify Status
+Retry- und Startup-Werte
+WebUI Bind-Adresse
+
+Secrets werden nicht angezeigt:
+
+Gotify Token
+Inhalt der Passwortliste
