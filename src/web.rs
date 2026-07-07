@@ -42,6 +42,8 @@ struct SettingsForm {
     retry_max_delay: u64,
     startup_scan_existing: Option<String>,
     gotify_enabled: Option<String>,
+    gotify_url: String,
+    gotify_token: String,
     gotify_priority_success: i32,
     gotify_priority_error: i32,
     gotify_notify_on_success: Option<String>,
@@ -194,13 +196,16 @@ async fn update_settings(
     Form(form): Form<SettingsForm>,
 ) -> impl IntoResponse {
     let message = match apply_settings_to_config_file(&state.config_path, &form) {
-        Ok(()) => {
+        Ok(backup_path) => {
             info!(
-                "WebUI Einstellungen gespeichert: {}",
-                state.config_path.display()
+                "WebUI Einstellungen gespeichert: {} Backup: {}",
+                state.config_path.display(),
+                backup_path.display()
             );
-            "Gespeichert. Bitte Container neu starten, damit der Worker die neuen Werte übernimmt."
-                .to_string()
+            format!(
+                "Gespeichert. Backup: {}. Bitte Container neu starten, damit der Worker die neuen Werte übernimmt.",
+                backup_path.display()
+            )
         }
         Err(err) => format!("Speichern fehlgeschlagen: {err:?}"),
     };
@@ -220,7 +225,7 @@ async fn update_settings(
     ))
 }
 
-fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<()> {
+fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<PathBuf> {
     if form.stable_after == 0 {
         anyhow::bail!("stable_after muss größer als 0 sein");
     }
@@ -301,6 +306,22 @@ fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<()>
     content = set_toml_value(
         content,
         "notifications.gotify",
+        "url",
+        &toml_string(form.gotify_url.trim()),
+    );
+
+    if !form.gotify_token.trim().is_empty() {
+        content = set_toml_value(
+            content,
+            "notifications.gotify",
+            "token",
+            &toml_string(form.gotify_token.trim()),
+        );
+    }
+
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
         "priority_success",
         &form.gotify_priority_success.to_string(),
     );
@@ -335,10 +356,15 @@ fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<()>
         &form.gotify_notify_after_attempts.to_string(),
     );
 
+    let _parsed: Config = toml::from_str(&content)
+        .context("Geänderte Config ist ungültig und wurde nicht gespeichert")?;
+
+    let backup_path = backup_config_file(path)?;
+
     fs::write(path, content)
         .with_context(|| format!("Konnte Config nicht schreiben: {}", path.display()))?;
 
-    Ok(())
+    Ok(backup_path)
 }
 
 fn set_toml_value(content: String, section: &str, key: &str, value: &str) -> String {
@@ -415,6 +441,54 @@ fn finish_toml_lines(lines: Vec<String>, trailing_newline: bool) -> String {
     }
 
     output
+}
+
+fn backup_config_file(path: &Path) -> Result<PathBuf> {
+    let current_config = Config::load(path)?;
+
+    let backup_root = Path::new(&current_config.history.directory)
+        .parent()
+        .map(|parent| parent.join("config-backups"))
+        .unwrap_or_else(|| PathBuf::from("/state/config-backups"));
+
+    fs::create_dir_all(&backup_root).with_context(|| {
+        format!(
+            "Konnte Config-Backup-Ordner nicht erstellen: {}",
+            backup_root.display()
+        )
+    })?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("config.toml");
+
+    let backup_path = backup_root.join(format!("{file_name}.bak.{timestamp}"));
+
+    fs::copy(path, &backup_path).with_context(|| {
+        format!(
+            "Konnte Config-Backup nicht schreiben: {}",
+            backup_path.display()
+        )
+    })?;
+
+    Ok(backup_path)
+}
+
+fn toml_string(value: &str) -> String {
+    format!(
+        "\"{}\"",
+        value
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+    )
 }
 
 fn toml_bool(value: bool) -> &'static str {
@@ -499,7 +573,9 @@ label {{
   font-size: 14px;
   margin-bottom: 6px;
 }}
-input[type="number"] {{
+input[type="number"],
+input[type="text"],
+input[type="password"] {{
   width: 100%;
   padding: 10px;
   border-radius: 10px;
@@ -602,6 +678,18 @@ code {{
       <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
       <div class="grid">
         <div>
+          <label for="gotify_url">Gotify URL</label>
+          <input id="gotify_url" name="gotify_url" type="text" value="{gotify_url}" autocomplete="off">
+        </div>
+        <div>
+          <label for="gotify_token">Gotify Token neu setzen</label>
+          <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = behalten" autocomplete="new-password">
+        </div>
+      </div>
+      <div class="small">Token wird nie angezeigt. Ein leerer Token-Wert lässt den bestehenden Token unverändert.</div>
+
+      <div class="grid">
+        <div>
           <label for="gotify_priority_success">priority_success</label>
           <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
         </div>
@@ -617,7 +705,7 @@ code {{
       <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Gotify URL und Token werden hier nicht angezeigt oder bearbeitet.</div>
+      <div class="small">Gotify Token wird nicht angezeigt. URL kann bearbeitet werden.</div>
     </section>
 
     <div class="actions">
@@ -639,6 +727,7 @@ code {{
         retry_max_delay = config.retry.max_delay,
         startup_scan_existing = checked(config.startup.scan_existing),
         gotify_enabled = checked(config.notifications.gotify.enabled),
+        gotify_url = escape_html(&config.notifications.gotify.url),
         gotify_priority_success = config.notifications.gotify.priority_success,
         gotify_priority_error = config.notifications.gotify.priority_error,
         gotify_notify_on_success = checked(config.notifications.gotify.notify_on_success),

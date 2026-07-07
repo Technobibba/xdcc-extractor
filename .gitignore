@@ -8,3 +8,6 @@ config.docker.toml
 config/
 config/passwords.txt
 .env
+state/config-backups/
+config.docker.toml.bak.*
+config.toml.bak.*
