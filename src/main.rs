@@ -12,6 +12,7 @@ mod queue;
 mod scan;
 mod status;
 mod web;
+mod web_assets;
 
 use notify::{
     Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
