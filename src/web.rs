@@ -1294,7 +1294,6 @@ code {{
     <a class="button" href="/">Zurück zum Dashboard</a>
     <a class="button" href="/settings">Einstellungen</a>
     <button id="refresh-logs" class="button" type="button">Logs aktualisieren</button>
-    <a class="button" href="/api/logs" target="_blank" rel="noopener">Logs API öffnen</a>
   </div>
 
   <section class="card">
@@ -2045,8 +2044,6 @@ footer {{
     <a class="button" href="/">Zurück zum Dashboard</a>
     <a class="button" href="/logs">Logs</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
-    <a class="button" href="/api/config" target="_blank" rel="noopener">Config API öffnen</a>
-    <a class="button" href="/api/status" target="_blank" rel="noopener">Status API öffnen</a>
   </div>
 
   <div class="grid">
@@ -2367,8 +2364,6 @@ code {{
         <a class="button" href="/">Aktualisieren</a>
         <a class="button" href="/settings">Einstellungen</a>
         <a class="button" href="/logs">Logs</a>
-        <a class="button" href="/api/status" target="_blank" rel="noopener">Status API</a>
-        <a class="button" href="/api/scan" target="_blank" rel="noopener">Scan API</a>
       </div>
     </section>
 
