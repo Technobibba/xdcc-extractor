@@ -2412,15 +2412,11 @@ code {{
     </section>
 
     <section class="card">
-      <h2>API</h2>
-      <div class="small"><code>/api/status</code></div>
-      <div class="small"><code>/api/config</code></div>
-      <div class="small"><code>/api/scan</code></div>
-      <div class="small"><code>/api/logs</code></div>
-      <div class="small"><code>/api/clear-failed</code></div>
-      <div class="small"><code>/api/process</code></div>
-      <div class="small"><code>/api/restart</code></div>
-      <div class="small"><code>/health</code></div>
+      <h2>System</h2>
+      <div class="value">bereit</div>
+      <div class="small">WebUI geschützt</div>
+      <div class="small">Healthcheck aktiv</div>
+      <div class="small">Version {version}</div>
     </section>
 
     <section class="card wide">
