@@ -14,4 +14,4 @@ services:
       - /media/HDD3/XDCC:/downloads
       - ./config.docker.toml:/app/config.toml:rw
       - ./state:/state
-      - ./config:/config:ro
+      - ./config:/config:rw
