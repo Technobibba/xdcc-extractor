@@ -668,9 +668,10 @@ code {{
   <h1>Einstellungen bearbeiten</h1>
   <div class="sub">Config: <code>{config_path}</code></div>
 
-  <div class="actions">
-    <a class="button" href="/settings">Zurück</a>
+    <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
+    <a class="button" href="/settings">Einstellungen</a>
+    <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
   </div>
 
@@ -1243,6 +1244,10 @@ h1 {{
   gap: 10px;
   margin-bottom: 18px;
 }}
+.actions.nav {{
+  margin-top: 22px;
+  margin-bottom: 28px;
+}}
 .button {{
   display: inline-block;
   padding: 10px 14px;
@@ -1290,9 +1295,11 @@ code {{
   <h1>Logs</h1>
   <div class="sub">XDCC Extractor Version {version}</div>
 
-  <div class="actions">
-    <a class="button" href="/">Zurück zum Dashboard</a>
+    <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
+    <a class="button" href="/">Dashboard</a>
     <a class="button" href="/settings">Einstellungen</a>
+    <a class="button" href="/settings/edit">Bearbeiten</a>
+    <a class="button" href="/logs">Logs</a>
     <button id="refresh-logs" class="button" type="button">Logs aktualisieren</button>
   </div>
 
@@ -2005,6 +2012,10 @@ h1 {{
   gap: 10px;
   margin-bottom: 18px;
 }}
+.actions.nav {{
+  margin-top: 22px;
+  margin-bottom: 28px;
+}}
 .button {{
   display: inline-block;
   padding: 10px 14px;
@@ -2040,10 +2051,11 @@ footer {{
   <h1>Einstellungen</h1>
   <div class="sub">XDCC Extractor Version {version}</div>
 
-  <div class="actions">
-    <a class="button" href="/">Zurück zum Dashboard</a>
-    <a class="button" href="/logs">Logs</a>
+    <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
+    <a class="button" href="/">Dashboard</a>
+    <a class="button" href="/settings">Einstellungen</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
+    <a class="button" href="/logs">Logs</a>
   </div>
 
   <div class="grid">
@@ -2351,20 +2363,18 @@ code {{
   <h1>XDCC Extractor</h1>
   <div class="sub">Version {version}</div>
 
+  <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
+    <a class="button" href="/">Dashboard</a>
+    <a class="button" href="/settings">Einstellungen</a>
+    <a class="button" href="/settings/edit">Bearbeiten</a>
+    <a class="button" href="/logs">Logs</a>
+  </div>
+
   <div class="grid">
     <section class="card">
       <h2>Worker</h2>
       <div class="value">läuft</div>
       <div class="small">WebUI erreichbar</div>
-    </section>
-
-    <section class="card">
-      <h2>Aktionen</h2>
-      <div class="actions">
-        <a class="button" href="/">Aktualisieren</a>
-        <a class="button" href="/settings">Einstellungen</a>
-        <a class="button" href="/logs">Logs</a>
-      </div>
     </section>
 
     <section class="card">
