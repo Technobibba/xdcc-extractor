@@ -2,6 +2,26 @@
 
 
 
+
+## v0.8.0 - 2026-07-08
+
+### Added
+- WebUI History-Reset mit Backup
+- WebUI Passwortlisten-Verwaltung
+- Backups für Passwortlistenänderungen
+- Einheitliche WebUI-Navigation
+
+### Changed
+- Dashboard vereinfacht
+- API-Karte durch Systemstatus ersetzt
+- Navigation-Abstände verbessert
+- Bearbeiten-Seite um Wartungsfunktionen erweitert
+
+### Security
+- Passwortlisten-Inhalt wird weiterhin nicht angezeigt
+- History- und Passwortänderungen erstellen Backups
+- Lokale Runtime-Dateien bleiben aus Git ausgeschlossen
+
 ## v0.7.0 - 2026-07-07
 
 ### Added
