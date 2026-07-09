@@ -23,6 +23,7 @@ pub fn logs_page_html() -> String {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XDCC Extractor Logs</title>
+<link rel="stylesheet" href="/assets/common.css">
 <link rel="stylesheet" href="/assets/logs.css">
 </head>
 <body>
@@ -116,6 +117,7 @@ pub fn settings_edit_page_html(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XDCC Extractor Einstellungen bearbeiten</title>
+<link rel="stylesheet" href="/assets/common.css">
 <link rel="stylesheet" href="/assets/settings-edit.css">
 </head>
 <body>
@@ -383,6 +385,7 @@ pub fn settings_page_html(config: &Config) -> String {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XDCC Extractor Einstellungen</title>
+<link rel="stylesheet" href="/assets/common.css">
 <link rel="stylesheet" href="/assets/settings.css">
 </head>
 <body>
@@ -512,6 +515,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XDCC Extractor</title>
+<link rel="stylesheet" href="/assets/common.css">
 <link rel="stylesheet" href="/assets/dashboard.css">
 </head>
 <body>

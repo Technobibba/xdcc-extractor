@@ -82,6 +82,7 @@ pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
                 .route("/api/clear-failed", post(crate::web_api::api_clear_failed))
                 .route("/api/process", post(crate::web_api::api_process))
                 .route("/api/restart", post(crate::web_api::api_restart))
+                .route("/assets/common.css", get(crate::web_styles::common_css))
                 .route(
                     "/assets/dashboard.css",
                     get(crate::web_styles::dashboard_css),
