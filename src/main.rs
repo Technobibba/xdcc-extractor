@@ -13,6 +13,7 @@ mod scan;
 mod status;
 mod web;
 mod web_assets;
+mod web_history;
 mod web_pages;
 
 use notify::{

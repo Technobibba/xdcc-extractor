@@ -812,7 +812,7 @@ footer {{
 }
 
 pub fn dashboard_page_html(config: &Config) -> String {
-    let history = crate::web::history_counts(&config.history.directory);
+    let history = crate::web_history::history_counts(&config.history.directory);
     let scan_html = scan_summary_html(config);
     let failures_html = crate::web::failures_html(config);
 
