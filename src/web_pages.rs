@@ -814,7 +814,7 @@ footer {{
 pub fn dashboard_page_html(config: &Config) -> String {
     let history = crate::web_history::history_counts(&config.history.directory);
     let scan_html = scan_summary_html(config);
-    let failures_html = crate::web::failures_html(config);
+    let failures_html = failures_html(config);
 
     let dry_run_badge = if config.extract.dry_run {
         r#"<span class="badge ok">aktiv</span>"#
@@ -1211,4 +1211,47 @@ fn action_button_html(state: &str, path: &str) -> String {
         ),
         _ => String::new(),
     }
+}
+
+fn failures_html(config: &Config) -> String {
+    let entries = match crate::web_history::failure_entries(&config.history.directory, 10) {
+        Ok(entries) => entries,
+        Err(err) => {
+            return format!(
+                r#"<div class="error">Fehlerliste konnte nicht geladen werden: {}</div>"#,
+                escape_html(&format!("{:?}", err))
+            );
+        }
+    };
+
+    let mut html = format!(
+        r#"<div class="scan-summary"><span class="badge bad">failed: {}</span></div>"#,
+        entries.len()
+    );
+
+    if entries.is_empty() {
+        html.push_str(r#"<div class="small">Keine fehlgeschlagenen Releases vorhanden.</div>"#);
+        return html;
+    }
+
+    html.push_str(r#"<div class="failure-list">"#);
+
+    for entry in entries {
+        html.push_str(&format!(
+            r#"<div class="failure-row">
+<div><span class="badge bad">{}</span> <span class="small">Fehlversuche: {}</span></div>
+<div class="scan-path">{}</div>
+<div class="small">{}</div>
+<div class="scan-actions"><button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button></div>
+</div>"#,
+            escape_html(&entry.error_class),
+            entry.attempts,
+            escape_html(&entry.path),
+            escape_html(&entry.reason),
+            escape_html(&entry.path),
+        ));
+    }
+
+    html.push_str("</div>");
+    html
 }
