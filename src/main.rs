@@ -14,6 +14,7 @@ mod status;
 mod web;
 mod web_assets;
 mod web_history;
+mod web_maintenance;
 mod web_pages;
 mod web_settings;
 
