@@ -1077,102 +1077,6 @@ async fn index(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     Html(crate::web_pages::dashboard_page_html(&state.config))
 }
 
-pub(crate) fn scan_summary_html(config: &Config) -> String {
-    let candidates = match scan::scan_candidates_with_history(config) {
-        Ok(candidates) => candidates,
-        Err(err) => {
-            return format!(
-                r#"<div class="error">Scan-Fehler: {}</div>"#,
-                escape(&format!("{:?}", err))
-            );
-        }
-    };
-
-    let mut new_count = 0;
-    let mut done_count = 0;
-    let mut failed_count = 0;
-
-    for candidate in &candidates {
-        match candidate.state.label() {
-            "new" => new_count += 1,
-            "done" => done_count += 1,
-            "failed" => failed_count += 1,
-            _ => {}
-        }
-    }
-
-    let mut html = format!(
-        r#"<div class="scan-summary">
-<span class="badge ok">new: {}</span>
-<span class="badge muted">done: {}</span>
-<span class="badge bad">failed: {}</span>
-<span class="badge muted">gesamt: {}</span>
-</div>"#,
-        new_count,
-        done_count,
-        failed_count,
-        candidates.len()
-    );
-
-    if candidates.is_empty() {
-        html.push_str(r#"<div class="small">Keine Kandidaten gefunden.</div>"#);
-        return html;
-    }
-
-    html.push_str(r#"<div class="scan-list">"#);
-
-    for candidate in candidates.iter().take(25) {
-        let label = candidate.state.label();
-        let class = match label {
-            "new" => "ok",
-            "done" => "muted",
-            "failed" => "bad",
-            _ => "muted",
-        };
-
-        html.push_str(&format!(
-            r#"<div class="scan-row"><span class="badge {}">{}</span><span class="scan-path">{}</span><span class="scan-actions">{}</span></div>"#,
-            class,
-            escape(label),
-            escape(&candidate.path.display().to_string()),
-            action_button_html(label, &candidate.path.display().to_string())
-        ));
-    }
-
-    if candidates.len() > 25 {
-        html.push_str(&format!(
-            r#"<div class="small">Weitere {} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>"#,
-            candidates.len() - 25
-        ));
-    }
-
-    html.push_str("</div>");
-    html
-}
-
-fn action_button_html(state: &str, path: &str) -> String {
-    match state {
-        "failed" => format!(
-            r#"<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button>"#,
-            escape(path)
-        ),
-        "new" => format!(
-            r#"<button class="button small-button" type="button" data-action="process" data-path="{}">Verarbeiten</button>"#,
-            escape(path)
-        ),
-        _ => String::new(),
-    }
-}
-
-#[derive(Debug, Clone)]
-struct FailureEntry {
-    marker: PathBuf,
-    path: String,
-    attempts: u64,
-    error_class: String,
-    reason: String,
-}
-
 pub(crate) fn failures_html(config: &Config) -> String {
     let entries = match failure_entries(&config.history.directory, 10) {
         Ok(entries) => entries,
@@ -1214,6 +1118,15 @@ pub(crate) fn failures_html(config: &Config) -> String {
 
     html.push_str("</div>");
     html
+}
+
+#[derive(Debug, Clone)]
+struct FailureEntry {
+    marker: PathBuf,
+    path: String,
+    attempts: u64,
+    error_class: String,
+    reason: String,
 }
 
 fn failure_entries(history_dir: &str, limit: usize) -> Result<Vec<FailureEntry>> {

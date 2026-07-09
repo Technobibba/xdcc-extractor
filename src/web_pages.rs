@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::scan;
 use std::path::Path;
 
 fn checked(value: bool) -> &'static str {
@@ -812,7 +813,7 @@ footer {{
 
 pub fn dashboard_page_html(config: &Config) -> String {
     let history = crate::web::history_counts(&config.history.directory);
-    let scan_html = crate::web::scan_summary_html(config);
+    let scan_html = scan_summary_html(config);
     let failures_html = crate::web::failures_html(config);
 
     let dry_run_badge = if config.extract.dry_run {
@@ -1123,4 +1124,91 @@ code {{
     );
 
     html
+}
+
+fn scan_summary_html(config: &Config) -> String {
+    let candidates = match scan::scan_candidates_with_history(config) {
+        Ok(candidates) => candidates,
+        Err(err) => {
+            return format!(
+                r#"<div class="error">Scan-Fehler: {}</div>"#,
+                escape_html(&format!("{:?}", err))
+            );
+        }
+    };
+
+    let mut new_count = 0;
+    let mut done_count = 0;
+    let mut failed_count = 0;
+
+    for candidate in &candidates {
+        match candidate.state.label() {
+            "new" => new_count += 1,
+            "done" => done_count += 1,
+            "failed" => failed_count += 1,
+            _ => {}
+        }
+    }
+
+    let mut html = format!(
+        r#"<div class="scan-summary">
+<span class="badge ok">new: {}</span>
+<span class="badge muted">done: {}</span>
+<span class="badge bad">failed: {}</span>
+<span class="badge muted">gesamt: {}</span>
+</div>"#,
+        new_count,
+        done_count,
+        failed_count,
+        candidates.len()
+    );
+
+    if candidates.is_empty() {
+        html.push_str(r#"<div class="small">Keine Kandidaten gefunden.</div>"#);
+        return html;
+    }
+
+    html.push_str(r#"<div class="scan-list">"#);
+
+    for candidate in candidates.iter().take(25) {
+        let label = candidate.state.label();
+        let class = match label {
+            "new" => "ok",
+            "done" => "muted",
+            "failed" => "bad",
+            _ => "muted",
+        };
+
+        html.push_str(&format!(
+            r#"<div class="scan-row"><span class="badge {}">{}</span><span class="scan-path">{}</span><span class="scan-actions">{}</span></div>"#,
+            class,
+            escape_html(label),
+            escape_html(&candidate.path.display().to_string()),
+            action_button_html(label, &candidate.path.display().to_string())
+        ));
+    }
+
+    if candidates.len() > 25 {
+        html.push_str(&format!(
+            r#"<div class="small">Weitere {} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>"#,
+            candidates.len() - 25
+        ));
+    }
+
+    html.push_str("</div>");
+    html
+}
+
+fn action_button_html(state: &str, path: &str) -> String {
+    match state {
+        "failed" => format!(
+            r#"<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button>"#,
+            escape_html(path)
+        ),
+        "new" => format!(
+            r#"<button class="button small-button" type="button" data-action="process" data-path="{}">Verarbeiten</button>"#,
+            escape_html(path)
+        ),
+        _ => String::new(),
+    }
 }
