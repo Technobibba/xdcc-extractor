@@ -1,7 +1,7 @@
-use crate::{config::Config, history::History, log_buffer, manual_process, scan};
+use crate::config::Config;
 use anyhow::{Context, Result};
 use axum::{
-    Json, Router,
+    Router,
     extract::{Form, Request, State},
     http::{StatusCode, header},
     middleware::{self, Next},
@@ -10,23 +10,13 @@ use axum::{
 };
 use base64::Engine as _;
 use serde::Deserialize;
-use serde_json::json;
-use std::{
-    net::SocketAddr,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{net::SocketAddr, path::PathBuf, sync::Arc};
 use tracing::{info, warn};
 
 #[derive(Clone)]
-struct AppState {
-    config: Config,
-    config_path: PathBuf,
-}
-
-#[derive(Debug, Deserialize)]
-struct PathRequest {
-    path: String,
+pub(crate) struct AppState {
+    pub(crate) config: Config,
+    pub(crate) config_path: PathBuf,
 }
 
 #[derive(Debug, Deserialize)]
@@ -84,14 +74,14 @@ pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
                     post(settings_password_replace),
                 )
                 .route("/logs", get(logs))
-                .route("/api/status", get(api_status))
-                .route("/api/config", get(api_config))
-                .route("/api/scan", get(api_scan))
-                .route("/api/failures", get(api_failures))
-                .route("/api/logs", get(api_logs))
-                .route("/api/clear-failed", post(api_clear_failed))
-                .route("/api/process", post(api_process))
-                .route("/api/restart", post(api_restart))
+                .route("/api/status", get(crate::web_api::api_status))
+                .route("/api/config", get(crate::web_api::api_config))
+                .route("/api/scan", get(crate::web_api::api_scan))
+                .route("/api/failures", get(crate::web_api::api_failures))
+                .route("/api/logs", get(crate::web_api::api_logs))
+                .route("/api/clear-failed", post(crate::web_api::api_clear_failed))
+                .route("/api/process", post(crate::web_api::api_process))
+                .route("/api/restart", post(crate::web_api::api_restart))
                 .route("/assets/app.js", get(crate::web_assets::app_js))
                 .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
 
@@ -329,201 +319,6 @@ fn current_config_for_page(state: &AppState) -> Config {
 
 async fn logs() -> Html<String> {
     Html(crate::web_pages::logs_page_html())
-}
-
-async fn api_logs() -> Json<serde_json::Value> {
-    Json(json!({
-        "lines": log_buffer::recent(300),
-        "limit": 300
-    }))
-}
-
-async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    Json(json!({
-        "ok": true,
-        "version": env!("CARGO_PKG_VERSION"),
-        "watch": {
-            "directory": state.config.watch.directory,
-            "stable_after": state.config.watch.stable_after,
-            "allow_root_archives": state.config.watch.allow_root_archives,
-        },
-        "extract": {
-            "delete_archives": state.config.extract.delete_archives,
-            "dry_run": state.config.extract.dry_run,
-            "keep_failed": state.config.extract.keep_failed,
-            "password_file_configured": !state.config.extract.password_file.trim().is_empty(),
-        },
-        "output": {
-            "directory": state.config.output.directory,
-        },
-        "history": {
-            "directory": state.config.history.directory,
-        },
-        "retry": {
-            "base_delay": state.config.retry.base_delay,
-            "max_delay": state.config.retry.max_delay,
-        },
-        "startup": {
-            "scan_existing": state.config.startup.scan_existing,
-        },
-        "notifications": {
-            "gotify": {
-                "enabled": state.config.notifications.gotify.enabled,
-                "url_configured": !state.config.notifications.gotify.url.trim().is_empty(),
-                "token_configured": !state.config.notifications.gotify.token.trim().is_empty(),
-                "priority_success": state.config.notifications.gotify.priority_success,
-                "priority_error": state.config.notifications.gotify.priority_error,
-                "notify_on_success": state.config.notifications.gotify.notify_on_success,
-                "notify_on_error": state.config.notifications.gotify.notify_on_error,
-                "notify_on_every_error": state.config.notifications.gotify.notify_on_every_error,
-                "notify_after_attempts": state.config.notifications.gotify.notify_after_attempts,
-            }
-        },
-        "web": {
-            "enabled": state.config.web.enabled,
-            "bind": state.config.web.bind,
-        },
-        "secrets": {
-            "gotify_token_visible": false,
-            "password_file_content_visible": false,
-        }
-    }))
-}
-
-async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    let history = crate::web_history::history_counts(&state.config.history.directory);
-
-    Json(json!({
-        "version": env!("CARGO_PKG_VERSION"),
-        "watch_directory": state.config.watch.directory,
-        "output_directory": state.config.output.directory,
-        "history_directory": state.config.history.directory,
-        "dry_run": state.config.extract.dry_run,
-        "delete_archives": state.config.extract.delete_archives,
-        "keep_failed": state.config.extract.keep_failed,
-        "allow_root_archives": state.config.watch.allow_root_archives,
-        "gotify_enabled": state.config.notifications.gotify.enabled,
-        "web_enabled": state.config.web.enabled,
-        "web_bind": state.config.web.bind,
-        "history_done": history.0,
-        "history_failed": history.1,
-    }))
-}
-
-async fn api_scan(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    match scan::scan_candidates_with_history(&state.config) {
-        Ok(candidates) => {
-            let items = candidates
-                .iter()
-                .map(|candidate| {
-                    json!({
-                        "path": candidate.path.display().to_string(),
-                        "state": candidate.state.label(),
-                    })
-                })
-                .collect::<Vec<_>>();
-
-            Json(json!({
-                "ok": true,
-                "count": items.len(),
-                "candidates": items,
-            }))
-        }
-        Err(err) => Json(json!({
-            "ok": false,
-            "error": format!("{:?}", err),
-        })),
-    }
-}
-
-async fn api_failures(State(state): State<Arc<AppState>>) -> Json<serde_json::Value> {
-    match crate::web_history::failure_entries(&state.config.history.directory, 25) {
-        Ok(entries) => {
-            let items = entries
-                .iter()
-                .map(|entry| {
-                    json!({
-                        "marker": entry.marker.display().to_string(),
-                        "path": entry.path,
-                        "attempts": entry.attempts,
-                        "error_class": entry.error_class,
-                        "reason": entry.reason,
-                    })
-                })
-                .collect::<Vec<_>>();
-
-            Json(json!({
-                "ok": true,
-                "count": items.len(),
-                "failures": items,
-            }))
-        }
-        Err(err) => Json(json!({
-            "ok": false,
-            "error": format!("{:?}", err),
-        })),
-    }
-}
-
-async fn api_clear_failed(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<PathRequest>,
-) -> Json<serde_json::Value> {
-    let path = Path::new(&payload.path);
-
-    let history = match History::new(&state.config.history.directory) {
-        Ok(history) => history,
-        Err(err) => {
-            return Json(json!({
-                "ok": false,
-                "error": format!("{:?}", err),
-            }));
-        }
-    };
-
-    match history.clear_failed(path) {
-        Ok(removed) => Json(json!({
-            "ok": true,
-            "removed": removed,
-            "path": payload.path,
-        })),
-        Err(err) => Json(json!({
-            "ok": false,
-            "error": format!("{:?}", err),
-        })),
-    }
-}
-
-async fn api_process(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<PathRequest>,
-) -> Json<serde_json::Value> {
-    let path = Path::new(&payload.path);
-
-    match manual_process::run_process("web", &state.config, path) {
-        Ok(()) => Json(json!({
-            "ok": true,
-            "path": payload.path,
-        })),
-        Err(err) => Json(json!({
-            "ok": false,
-            "error": format!("{:?}", err),
-        })),
-    }
-}
-
-async fn api_restart() -> Json<serde_json::Value> {
-    info!("WebUI Neustart wurde angefordert.");
-
-    std::thread::spawn(|| {
-        std::thread::sleep(std::time::Duration::from_millis(900));
-        std::process::exit(0);
-    });
-
-    Json(json!({
-        "ok": true,
-        "message": "Neustart wird ausgelöst"
-    }))
 }
 
 async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {

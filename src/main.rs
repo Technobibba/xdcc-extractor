@@ -12,6 +12,7 @@ mod queue;
 mod scan;
 mod status;
 mod web;
+mod web_api;
 mod web_assets;
 mod web_history;
 mod web_maintenance;
