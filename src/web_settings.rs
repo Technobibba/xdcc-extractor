@@ -1,0 +1,301 @@
+use crate::config::Config;
+use anyhow::{Context, Result};
+use serde::Deserialize;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::SystemTime,
+};
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct SettingsForm {
+    pub(crate) stable_after: u64,
+    pub(crate) allow_root_archives: Option<String>,
+    pub(crate) delete_archives: Option<String>,
+    pub(crate) dry_run: Option<String>,
+    pub(crate) keep_failed: Option<String>,
+    pub(crate) retry_base_delay: u64,
+    pub(crate) retry_max_delay: u64,
+    pub(crate) startup_scan_existing: Option<String>,
+    pub(crate) gotify_enabled: Option<String>,
+    pub(crate) gotify_url: String,
+    pub(crate) gotify_token: String,
+    pub(crate) gotify_priority_success: i32,
+    pub(crate) gotify_priority_error: i32,
+    pub(crate) gotify_notify_on_success: Option<String>,
+    pub(crate) gotify_notify_on_error: Option<String>,
+    pub(crate) gotify_notify_on_every_error: Option<String>,
+    pub(crate) gotify_notify_after_attempts: u64,
+}
+
+pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<PathBuf> {
+    if form.stable_after == 0 {
+        anyhow::bail!("stable_after muss größer als 0 sein");
+    }
+
+    if form.retry_base_delay == 0 {
+        anyhow::bail!("retry.base_delay muss größer als 0 sein");
+    }
+
+    if form.retry_max_delay < form.retry_base_delay {
+        anyhow::bail!("retry.max_delay muss größer oder gleich retry.base_delay sein");
+    }
+
+    if form.gotify_notify_after_attempts == 0 {
+        anyhow::bail!("notify_after_attempts muss größer als 0 sein");
+    }
+
+    let mut content = fs::read_to_string(path)
+        .with_context(|| format!("Konnte Config nicht lesen: {}", path.display()))?;
+
+    content = set_toml_value(
+        content,
+        "watch",
+        "stable_after",
+        &form.stable_after.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "watch",
+        "allow_root_archives",
+        toml_bool(form.allow_root_archives.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "extract",
+        "delete_archives",
+        toml_bool(form.delete_archives.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "extract",
+        "dry_run",
+        toml_bool(form.dry_run.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "extract",
+        "keep_failed",
+        toml_bool(form.keep_failed.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "retry",
+        "base_delay",
+        &form.retry_base_delay.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "retry",
+        "max_delay",
+        &form.retry_max_delay.to_string(),
+    );
+
+    content = set_toml_value(
+        content,
+        "startup",
+        "scan_existing",
+        toml_bool(form.startup_scan_existing.is_some()),
+    );
+
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "enabled",
+        toml_bool(form.gotify_enabled.is_some()),
+    );
+    if !form.gotify_url.trim().is_empty() {
+        content = set_toml_value(
+            content,
+            "notifications.gotify",
+            "url",
+            &toml_string(form.gotify_url.trim()),
+        );
+    }
+
+    if !form.gotify_token.trim().is_empty() {
+        content = set_toml_value(
+            content,
+            "notifications.gotify",
+            "token",
+            &toml_string(form.gotify_token.trim()),
+        );
+    }
+
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "priority_success",
+        &form.gotify_priority_success.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "priority_error",
+        &form.gotify_priority_error.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_success",
+        toml_bool(form.gotify_notify_on_success.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_error",
+        toml_bool(form.gotify_notify_on_error.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_on_every_error",
+        toml_bool(form.gotify_notify_on_every_error.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.gotify",
+        "notify_after_attempts",
+        &form.gotify_notify_after_attempts.to_string(),
+    );
+
+    let _parsed: Config = toml::from_str(&content)
+        .context("Geänderte Config ist ungültig und wurde nicht gespeichert")?;
+
+    let backup_path = backup_config_file(path)?;
+
+    fs::write(path, content)
+        .with_context(|| format!("Konnte Config nicht schreiben: {}", path.display()))?;
+
+    Ok(backup_path)
+}
+
+fn set_toml_value(content: String, section: &str, key: &str, value: &str) -> String {
+    let mut lines = content.lines().map(str::to_string).collect::<Vec<_>>();
+    let had_trailing_newline = content.ends_with('\n');
+
+    let mut in_target = false;
+    let mut section_found = false;
+    let mut insert_at = None;
+
+    for index in 0..lines.len() {
+        let trimmed = lines[index].trim();
+
+        if trimmed.starts_with('[') && trimmed.ends_with(']') {
+            if in_target && insert_at.is_none() {
+                insert_at = Some(index);
+            }
+
+            in_target = &trimmed[1..trimmed.len() - 1] == section;
+
+            if in_target {
+                section_found = true;
+            }
+
+            continue;
+        }
+
+        if !in_target {
+            continue;
+        }
+
+        let without_comment = lines[index].split('#').next().unwrap_or("");
+        let candidate = without_comment.trim_start();
+
+        if !candidate.starts_with(key) {
+            continue;
+        }
+
+        let rest = &candidate[key.len()..];
+
+        if rest.trim_start().starts_with('=') {
+            let indent_len = lines[index].len() - lines[index].trim_start().len();
+            let indent = &lines[index][..indent_len];
+            let comment = lines[index]
+                .find('#')
+                .map(|pos| format!(" {}", lines[index][pos..].trim_start()))
+                .unwrap_or_default();
+
+            lines[index] = format!("{indent}{key}={value}{comment}");
+            return finish_toml_lines(lines, had_trailing_newline);
+        }
+    }
+
+    if section_found {
+        let index = insert_at.unwrap_or(lines.len());
+        lines.insert(index, format!("{key}={value}"));
+    } else {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+
+        lines.push(format!("[{section}]"));
+        lines.push(format!("{key}={value}"));
+    }
+
+    finish_toml_lines(lines, had_trailing_newline)
+}
+
+fn finish_toml_lines(lines: Vec<String>, trailing_newline: bool) -> String {
+    let mut output = lines.join("\n");
+
+    if trailing_newline {
+        output.push('\n');
+    }
+
+    output
+}
+
+fn backup_config_file(path: &Path) -> Result<PathBuf> {
+    let current_config = Config::load(path)?;
+
+    let backup_root = Path::new(&current_config.history.directory)
+        .parent()
+        .map(|parent| parent.join("config-backups"))
+        .unwrap_or_else(|| PathBuf::from("/state/config-backups"));
+
+    fs::create_dir_all(&backup_root).with_context(|| {
+        format!(
+            "Konnte Config-Backup-Ordner nicht erstellen: {}",
+            backup_root.display()
+        )
+    })?;
+
+    let timestamp = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default();
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("config.toml");
+
+    let backup_path = backup_root.join(format!("{file_name}.bak.{timestamp}"));
+
+    fs::copy(path, &backup_path).with_context(|| {
+        format!(
+            "Konnte Config-Backup nicht schreiben: {}",
+            backup_path.display()
+        )
+    })?;
+
+    Ok(backup_path)
+}
+
+fn toml_string(value: &str) -> String {
+    format!(
+        "\"{}\"",
+        value
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+            .replace('\r', "\\r")
+    )
+}
+
+fn toml_bool(value: bool) -> &'static str {
+    if value { "true" } else { "false" }
+}
