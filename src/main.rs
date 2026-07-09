@@ -18,6 +18,7 @@ mod web_history;
 mod web_maintenance;
 mod web_pages;
 mod web_settings;
+mod web_styles;
 
 use notify::{
     Config as NotifyConfig, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher,
