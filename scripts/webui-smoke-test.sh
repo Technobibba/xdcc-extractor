@@ -102,6 +102,36 @@ check_asset() {
     echo "OK"
 }
 
+
+check_contains() {
+    local path="$1"
+    local expected="$2"
+    local label="$3"
+
+    printf "Prüfe %-32s " "$label"
+
+    local response
+
+    response="$(
+        curl \
+            --fail \
+            --silent \
+            --show-error \
+            --user "${AUTH_USER}:${AUTH_PASSWORD}" \
+            "${BASE_URL}${path}"
+    )"
+
+    if ! grep -Fq "$expected" <<<"$response"; then
+        echo "FEHLER"
+        echo "Erwarteter Inhalt wurde nicht gefunden:"
+        echo "Pfad: $path"
+        echo "Inhalt: $expected"
+        exit 1
+    fi
+
+    echo "OK"
+}
+
 echo "XDCC Extractor WebUI Smoke-Test"
 echo "Ziel: $BASE_URL"
 echo
@@ -136,4 +166,67 @@ check_asset "/assets/logs.css"
 check_asset "/assets/app.js"
 
 echo
+echo
+echo "== UX- und Auto-Refresh-Merkmale =="
+
+check_contains \
+    "/" \
+    'id="toast-region"' \
+    "Dashboard Toast-Bereich"
+
+check_contains \
+    "/" \
+    'id="auto-refresh-status"' \
+    "Dashboard Auto-Refresh"
+
+check_contains \
+    "/assets/app.js" \
+    "function showToast(" \
+    "JavaScript Toasts"
+
+check_contains \
+    "/assets/app.js" \
+    "function setButtonBusy(" \
+    "JavaScript Ladezustände"
+
+check_contains \
+    "/assets/app.js" \
+    "AUTO_REFRESH_INTERVAL_MS = 30000" \
+    "Auto-Refresh Intervall"
+
+check_contains \
+    "/assets/app.js" \
+    "visibilitychange" \
+    "Pause bei inaktivem Tab"
+
+check_contains \
+    "/assets/dashboard.css" \
+    ".toast-region {" \
+    "Toast-Styles"
+
+check_contains \
+    "/assets/dashboard.css" \
+    ".button.is-loading {" \
+    "Dashboard Ladeanimation"
+
+check_contains \
+    "/assets/dashboard.css" \
+    ".auto-refresh-status {" \
+    "Auto-Refresh Styles"
+
+check_contains \
+    "/settings/edit" \
+    'class="restart-status"' \
+    "Neustart-Status"
+
+check_contains \
+    "/assets/settings-edit.css" \
+    ".notice.restart-required {" \
+    "Neustart-Hinweis"
+
+check_contains \
+    "/assets/settings-edit.css" \
+    "settings-button-spin" \
+    "Formular Ladeanimation"
+
 echo "Alle WebUI-Tests erfolgreich."
