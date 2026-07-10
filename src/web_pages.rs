@@ -36,6 +36,7 @@ pub fn logs_page_html() -> String {
     <a class="button" href="/settings">Einstellungen</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/diagnostics">Diagnose</a>
     <button id="refresh-logs" class="button" type="button">Logs aktualisieren</button>
   </div>
 
@@ -130,6 +131,7 @@ pub fn settings_edit_page_html(
     <a class="button" href="/settings">Einstellungen</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/diagnostics">Diagnose</a>
   </div>
 
   {message_html}
@@ -398,6 +400,7 @@ pub fn settings_page_html(config: &Config) -> String {
     <a class="button" href="/settings">Einstellungen</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/diagnostics">Diagnose</a>
   </div>
 
   <div class="grid">
@@ -528,6 +531,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
     <a class="button" href="/settings">Einstellungen</a>
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/diagnostics">Diagnose</a>
   </div>
 
   <div class="grid">
@@ -752,4 +756,242 @@ fn failures_html(config: &Config) -> String {
 
     html.push_str("</div>");
     html
+}
+
+pub fn diagnostics_page_html(config: &Config) -> String {
+    let availability_badge = |available: bool| -> String {
+        if available {
+            r#"<span class="badge ok">erreichbar</span>"#.to_string()
+        } else {
+            r#"<span class="badge bad">nicht erreichbar</span>"#.to_string()
+        }
+    };
+
+    let yes_no_badge = |configured: bool| -> String {
+        if configured {
+            r#"<span class="badge ok">ja</span>"#.to_string()
+        } else {
+            r#"<span class="badge muted">nein</span>"#.to_string()
+        }
+    };
+
+    let watch_status = availability_badge(Path::new(&config.watch.directory).is_dir());
+
+    let output_status = availability_badge(Path::new(&config.output.directory).is_dir());
+
+    let history_status = availability_badge(Path::new(&config.history.directory).is_dir());
+
+    let password_configured = !config.extract.password_file.trim().is_empty();
+
+    let password_exists = password_configured && Path::new(&config.extract.password_file).is_file();
+
+    let password_status = if !password_configured {
+        r#"<span class="badge muted">nicht konfiguriert</span>"#
+    } else if password_exists {
+        r#"<span class="badge ok">vorhanden</span>"#
+    } else {
+        r#"<span class="badge bad">nicht gefunden</span>"#
+    };
+
+    let password_path = if password_configured {
+        escape_html(&config.extract.password_file)
+    } else {
+        "—".to_string()
+    };
+
+    let gotify_url_configured = !config.notifications.gotify.url.trim().is_empty();
+
+    let gotify_token_configured = !config.notifications.gotify.token.trim().is_empty();
+
+    let gotify_status = if !config.notifications.gotify.enabled {
+        r#"<span class="badge muted">aus</span>"#
+    } else if gotify_url_configured && gotify_token_configured {
+        r#"<span class="badge ok">bereit</span>"#
+    } else {
+        r#"<span class="badge bad">unvollständig</span>"#
+    };
+
+    let test_mode = if config.extract.dry_run {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let web_status = if config.web.enabled {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let history = crate::web_history::history_counts(&config.history.directory);
+
+    format!(
+        r#"<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XDCC Extractor Diagnose</title>
+<link rel="stylesheet" href="/assets/common.css">
+<link rel="stylesheet" href="/assets/settings.css">
+</head>
+<body>
+<main>
+  <h1>Diagnose</h1>
+  <div class="sub">
+    Read-only Statusübersicht · Version {version}
+  </div>
+
+  <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
+    <a class="button" href="/">Dashboard</a>
+    <a class="button" href="/settings">Einstellungen</a>
+    <a class="button" href="/settings/edit">Bearbeiten</a>
+    <a class="button" href="/logs">Logs</a>
+    <a class="button" href="/diagnostics">Diagnose</a>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>System</h2>
+
+      <div class="row">
+        <div class="key">Version</div>
+        <div class="value">{version}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">WebUI</div>
+        <div class="value">{web_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Adresse / Port</div>
+        <div class="value"><code>{web_bind}</code></div>
+      </div>
+
+      <div class="row">
+        <div class="key">Testmodus</div>
+        <div class="value">{test_mode}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Verlauf</h2>
+
+      <div class="row">
+        <div class="key">Verlaufsordner</div>
+        <div class="value">
+          {history_status}<br>
+          <code>{history_dir}</code>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="key">Erledigt</div>
+        <div class="value">
+          <span class="badge ok">{history_done}</span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="key">Fehlgeschlagen</div>
+        <div class="value">
+          <span class="badge bad">{history_failed}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card wide">
+      <h2>Speicherorte</h2>
+
+      <div class="row">
+        <div class="key">Überwachter Ordner</div>
+        <div class="value">
+          {watch_status}<br>
+          <code>{watch_dir}</code>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="key">Ausgabeordner</div>
+        <div class="value">
+          {output_status}<br>
+          <code>{output_dir}</code>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Passwortliste</h2>
+
+      <div class="row">
+        <div class="key">Status</div>
+        <div class="value">{password_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Pfad</div>
+        <div class="value"><code>{password_path}</code></div>
+      </div>
+
+      <div class="row">
+        <div class="key">Inhalt</div>
+        <div class="value">
+          <span class="badge muted">bleibt verborgen</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Gotify</h2>
+
+      <div class="row">
+        <div class="key">Status</div>
+        <div class="value">{gotify_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">URL konfiguriert</div>
+        <div class="value">{gotify_url_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Token konfiguriert</div>
+        <div class="value">{gotify_token_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Token</div>
+        <div class="value">
+          <span class="badge muted">nicht sichtbar</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    Diese Seite prüft nur den aktuellen Zustand. Es werden keine
+    Passwörter, Tokens oder anderen vertraulichen Inhalte angezeigt.
+  </footer>
+</main>
+</body>
+</html>"#,
+        version = env!("CARGO_PKG_VERSION"),
+        web_status = web_status,
+        web_bind = escape_html(&config.web.bind),
+        test_mode = test_mode,
+        history_status = history_status,
+        history_dir = escape_html(&config.history.directory),
+        history_done = history.0,
+        history_failed = history.1,
+        watch_status = watch_status,
+        watch_dir = escape_html(&config.watch.directory),
+        output_status = output_status,
+        output_dir = escape_html(&config.output.directory),
+        password_status = password_status,
+        password_path = password_path,
+        gotify_status = gotify_status,
+        gotify_url_status = yes_no_badge(gotify_url_configured),
+        gotify_token_status = yes_no_badge(gotify_token_configured),
+    )
 }

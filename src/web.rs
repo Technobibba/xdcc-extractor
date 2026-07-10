@@ -74,6 +74,7 @@ pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
                     post(settings_password_replace),
                 )
                 .route("/logs", get(logs))
+                .route("/diagnostics", get(diagnostics))
                 .route("/api/status", get(crate::web_api::api_status))
                 .route("/api/config", get(crate::web_api::api_config))
                 .route("/api/scan", get(crate::web_api::api_scan))
@@ -330,6 +331,10 @@ fn current_config_for_page(state: &AppState) -> Config {
 
 async fn logs() -> Html<String> {
     Html(crate::web_pages::logs_page_html())
+}
+
+async fn diagnostics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    Html(crate::web_pages::diagnostics_page_html(&state.config))
 }
 
 async fn settings(State(state): State<Arc<AppState>>) -> impl IntoResponse {

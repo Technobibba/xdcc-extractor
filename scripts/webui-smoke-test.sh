@@ -115,6 +115,7 @@ check_page "/" "<h1>XDCC Extractor</h1>"
 check_page "/settings" "<h1>Einstellungen</h1>"
 check_page "/settings/edit" "<h1>Einstellungen bearbeiten</h1>"
 check_page "/logs" "<h1>Logs</h1>"
+check_page "/diagnostics" "<h1>Diagnose</h1>"
 
 echo
 echo "== API-Endpunkte =="
