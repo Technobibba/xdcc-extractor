@@ -147,6 +147,7 @@ check_page "/settings/edit" "<h1>Einstellungen bearbeiten</h1>"
 check_page "/logs" "<h1>Logs</h1>"
 check_page "/diagnostics" "<h1>Diagnose</h1>"
 check_page "/diagnostics" "<h2>Sicherungen</h2>"
+check_page "/diagnostics" "<h2>Speicherorte und Speicherplatz</h2>"
 
 echo
 echo "== API-Endpunkte =="
@@ -228,5 +229,10 @@ check_contains \
     "/assets/settings-edit.css" \
     "settings-button-spin" \
     "Formular Ladeanimation"
+
+check_contains \
+    "/assets/settings.css" \
+    ".disk-meter {" \
+    "Speicherplatz Styles"
 
 echo "Alle WebUI-Tests erfolgreich."

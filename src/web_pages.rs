@@ -838,10 +838,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         }
     };
 
-    let watch_status = availability_badge(Path::new(&config.watch.directory).is_dir());
-
-    let output_status = availability_badge(Path::new(&config.output.directory).is_dir());
-
     let history_status = availability_badge(Path::new(&config.history.directory).is_dir());
 
     let password_configured = !config.extract.password_file.trim().is_empty();
@@ -954,6 +950,121 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     ]
     .join("\n");
 
+    let disk_card_html = |title: &str, path: &str| -> String {
+        match crate::web_disk::disk_usage(Path::new(path)) {
+            Ok(usage) => {
+                let css_class = usage.level.css_class();
+
+                let meter_percent = usage.used_percent.clamp(0.0, 100.0);
+
+                format!(
+                    r#"<section class="card">
+      <h2>{title}</h2>
+
+      <div class="row">
+        <div class="key">Erreichbarkeit</div>
+        <div class="value">
+          <span class="badge ok">
+            erreichbar
+          </span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="key">Speicherstatus</div>
+        <div class="value">
+          <span class="badge {css_class}">
+            {status_label}
+          </span>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="key">Gesamt</div>
+        <div class="value">{total}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Belegt</div>
+        <div class="value">{used}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Frei</div>
+        <div class="value">{available}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Auslastung</div>
+        <div class="value">
+          {used_percent:.1} %
+        </div>
+      </div>
+
+      <div
+        class="disk-meter"
+        role="progressbar"
+        aria-label="Speicherauslastung"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="{meter_percent:.1}"
+      >
+        <div
+          class="disk-meter-fill {css_class}"
+          style="width: {meter_percent:.1}%;"
+        ></div>
+      </div>
+
+      <div class="small disk-path">
+        <code>{path}</code>
+      </div>
+    </section>"#,
+                    title = escape_html(title),
+                    css_class = css_class,
+                    status_label = usage.level.label(),
+                    total = crate::web_disk::format_bytes(usage.total_bytes),
+                    used = crate::web_disk::format_bytes(usage.used_bytes),
+                    available = crate::web_disk::format_bytes(usage.available_bytes),
+                    used_percent = usage.used_percent,
+                    meter_percent = meter_percent,
+                    path = escape_html(path),
+                )
+            }
+            Err(err) => format!(
+                r#"<section class="card">
+      <h2>{}</h2>
+
+      <div class="row">
+        <div class="key">Status</div>
+        <div class="value">
+          <span class="badge bad">
+            nicht verfügbar
+          </span>
+        </div>
+      </div>
+
+      <div class="small">
+        {}
+      </div>
+
+      <div class="small disk-path">
+        <code>{}</code>
+      </div>
+    </section>"#,
+                escape_html(title),
+                escape_html(&format!("{err:#}")),
+                escape_html(path),
+            ),
+        }
+    };
+
+    let disk_cards_html = [
+        disk_card_html("Überwachter Ordner", &config.watch.directory),
+        disk_card_html("Ausgabeordner", &config.output.directory),
+        disk_card_html("Verlaufs-/State-Ordner", &config.history.directory),
+    ]
+    .join("\n");
+
     format!(
         r#"<!doctype html>
 <html lang="de">
@@ -1030,26 +1141,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
       </div>
     </section>
 
-    <section class="card wide">
-      <h2>Speicherorte</h2>
-
-      <div class="row">
-        <div class="key">Überwachter Ordner</div>
-        <div class="value">
-          {watch_status}<br>
-          <code>{watch_dir}</code>
-        </div>
-      </div>
-
-      <div class="row">
-        <div class="key">Ausgabeordner</div>
-        <div class="value">
-          {output_status}<br>
-          <code>{output_dir}</code>
-        </div>
-      </div>
-    </section>
-
     <section class="card">
       <h2>Passwortliste</h2>
 
@@ -1098,6 +1189,17 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     </section>
 
     <section class="card wide">
+      <h2>Speicherorte und Speicherplatz</h2>
+      <div class="small">
+        Die Werte beziehen sich auf das jeweilige Dateisystem.
+        Identische Werte sind normal, wenn mehrere Ordner auf
+        demselben Datenträger liegen.
+      </div>
+    </section>
+
+    {disk_cards_html}
+
+    <section class="card wide">
       <h2>Sicherungen</h2>
       <div class="small">
         Es werden nur Anzahl, Zeitpunkt und Speicherort angezeigt.
@@ -1123,15 +1225,12 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         history_dir = escape_html(&config.history.directory),
         history_done = history.0,
         history_failed = history.1,
-        watch_status = watch_status,
-        watch_dir = escape_html(&config.watch.directory),
-        output_status = output_status,
-        output_dir = escape_html(&config.output.directory),
         password_status = password_status,
         password_path = password_path,
         gotify_status = gotify_status,
         gotify_url_status = yes_no_badge(gotify_url_configured),
         gotify_token_status = yes_no_badge(gotify_token_configured),
+        disk_cards_html = disk_cards_html,
         backup_cards_html = backup_cards_html,
     )
 }

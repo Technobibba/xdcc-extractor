@@ -487,7 +487,47 @@ footer {
     grid-template-columns: 1fr;
     gap: 4px;
   }
-}"###;
+}
+
+.disk-meter {
+  width: 100%;
+  height: 10px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(154, 164, 178, .14);
+}
+
+.disk-meter-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: inherit;
+  transition: width .2s ease;
+}
+
+.disk-meter-fill.ok {
+  background: var(--ok);
+}
+
+.disk-meter-fill.warn {
+  background: var(--warn);
+}
+
+.disk-meter-fill.bad {
+  background: var(--bad);
+}
+
+.disk-path {
+  margin-top: 12px;
+  word-break: break-all;
+}
+
+.value code,
+.disk-path code {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+"###;
 
 pub async fn settings_css() -> impl IntoResponse {
     (
