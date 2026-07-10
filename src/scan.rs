@@ -45,8 +45,12 @@ pub fn print_scan(config: &Config) -> Result<()> {
     println!("== XDCC Extractor Scan ==");
     println!();
 
-    println!("Watch directory:");
-    println!("  {}", config.watch.directory);
+    println!("Überwachte Ordner:");
+
+    for directory in config.watch.resolved_directories() {
+        println!("  {}", directory);
+    }
+
     println!();
 
     println!("Root-Archive erlaubt:");
@@ -98,7 +102,7 @@ pub fn print_scan(config: &Config) -> Result<()> {
 }
 
 pub fn scan_candidates_with_history(config: &Config) -> Result<Vec<ScanCandidate>> {
-    let candidates = scan_candidates(config)?;
+    let candidates = scan_candidate_paths(config)?;
     let history = History::new(Path::new(&config.history.directory))?;
 
     let mut result = Vec::new();
@@ -122,41 +126,48 @@ fn classify_candidate(history: &History, path: &Path) -> ScanState {
     }
 }
 
-fn scan_candidates(config: &Config) -> Result<Vec<PathBuf>> {
-    let watch_dir = Path::new(&config.watch.directory);
-
-    if !watch_dir.is_dir() {
-        anyhow::bail!("Watch directory existiert nicht: {}", watch_dir.display());
-    }
-
+pub(crate) fn scan_candidate_paths(config: &Config) -> Result<Vec<PathBuf>> {
     let mut candidates = BTreeSet::new();
 
-    for entry in fs::read_dir(watch_dir)
-        .with_context(|| format!("Konnte Watch-Ordner nicht lesen: {}", watch_dir.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
+    for directory in config.watch.resolved_directories() {
+        let watch_dir = Path::new(directory);
 
-        if should_skip_entry(&name) {
-            continue;
+        if !watch_dir.is_dir() {
+            anyhow::bail!("Watch-Ordner existiert nicht: {}", watch_dir.display());
         }
 
-        if path.is_dir() {
-            if extractor::has_archive_start(&path)? {
-                candidates.insert(path);
+        for entry in fs::read_dir(watch_dir).with_context(|| {
+            format!(
+                "Konnte Watch-Ordner \
+nicht lesen: {}",
+                watch_dir.display()
+            )
+        })? {
+            let entry = entry?;
+            let path = entry.path();
+
+            let name = entry.file_name().to_string_lossy().to_string();
+
+            if should_skip_entry(&name) {
+                continue;
             }
 
-            continue;
-        }
+            if path.is_dir() {
+                if extractor::has_archive_start(&path)? {
+                    candidates.insert(path);
+                }
 
-        if path.is_file()
-            && config.watch.allow_root_archives
-            && extractor::is_archive_related_file(&path)
-        {
-            if let Some(target) = extractor::root_archive_target(&path) {
-                if target.exists() && extractor::has_archive_start(&target)? {
-                    candidates.insert(target);
+                continue;
+            }
+
+            if path.is_file()
+                && config.watch.allow_root_archives
+                && extractor::is_archive_related_file(&path)
+            {
+                if let Some(target) = extractor::root_archive_target(&path) {
+                    if target.exists() && extractor::has_archive_start(&target)? {
+                        candidates.insert(target);
+                    }
                 }
             }
         }
@@ -215,11 +226,70 @@ directory="{}"
         .expect("write config");
 
         let config = Config::load(&config_file).expect("load config");
-        let candidates = scan_candidates(&config).expect("scan");
+        let candidates = scan_candidate_paths(&config).expect("scan");
 
         assert!(candidates.contains(&folder_release));
         assert!(candidates.contains(&root_part1));
         assert!(!candidates.contains(&ignored_dir));
+    }
+
+    #[test]
+    fn scan_finds_candidates_in_multiple_watch_directories() {
+        let dir = tempdir().expect("tempdir");
+
+        let watch_a = dir.path().join("watch-a");
+
+        let watch_b = dir.path().join("watch-b");
+
+        let history_dir = dir.path().join("history");
+
+        fs::create_dir_all(&watch_a).expect("create watch-a");
+
+        fs::create_dir_all(&watch_b).expect("create watch-b");
+
+        let release_a = watch_a.join("Release.A");
+
+        let release_b = watch_b.join("Release.B");
+
+        fs::create_dir_all(&release_a).expect("create release-a");
+
+        fs::create_dir_all(&release_b).expect("create release-b");
+
+        fs::write(release_a.join("Release.A.rar"), "rar-a").expect("write release-a");
+
+        fs::write(release_b.join("Release.B.rar"), "rar-b").expect("write release-b");
+
+        let config_file = dir.path().join("config.toml");
+
+        fs::write(
+            &config_file,
+            format!(
+                r#"
+[watch]
+directories=[
+    "{}",
+    "{}"
+]
+
+[history]
+directory="{}"
+"#,
+                watch_a.display(),
+                watch_b.display(),
+                history_dir.display(),
+            ),
+        )
+        .expect("write config");
+
+        let config = Config::load(&config_file).expect("load config");
+
+        let candidates = scan_candidate_paths(&config).expect("scan");
+
+        assert!(candidates.contains(&release_a));
+
+        assert!(candidates.contains(&release_b));
+
+        assert_eq!(candidates.len(), 2);
     }
 
     #[test]
@@ -249,7 +319,7 @@ directory="{}"
         .expect("write config");
 
         let config = Config::load(&config_file).expect("load config");
-        let candidates = scan_candidates(&config).expect("scan");
+        let candidates = scan_candidate_paths(&config).expect("scan");
 
         assert!(candidates.is_empty());
     }

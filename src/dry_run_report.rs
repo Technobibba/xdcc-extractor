@@ -1,8 +1,7 @@
 use crate::{config::Config, extractor, history::History};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{
-    collections::BTreeSet,
-    env, fs,
+    env,
     path::{Path, PathBuf},
 };
 
@@ -39,7 +38,11 @@ pub fn print_report(config: &Config) -> Result<()> {
     println!();
 
     println!("Konfiguration:");
-    println!("  watch: {}", config.watch.directory);
+    println!("  watch:");
+
+    for directory in config.watch.resolved_directories() {
+        println!("    {}", directory);
+    }
     println!("  output: {}", config.output.directory);
     println!("  history: {}", config.history.directory);
     println!(
@@ -146,53 +149,7 @@ fn classify_candidate(history: &History, path: &Path) -> ReportState {
 }
 
 fn scan_candidates(config: &Config) -> Result<Vec<PathBuf>> {
-    let watch_dir = Path::new(&config.watch.directory);
-
-    if !watch_dir.is_dir() {
-        anyhow::bail!("Watch directory existiert nicht: {}", watch_dir.display());
-    }
-
-    let mut candidates = BTreeSet::new();
-
-    for entry in fs::read_dir(watch_dir)
-        .with_context(|| format!("Konnte Watch-Ordner nicht lesen: {}", watch_dir.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-
-        if should_skip_entry(&name) {
-            continue;
-        }
-
-        if path.is_dir() {
-            if extractor::has_archive_start(&path)? {
-                candidates.insert(path);
-            }
-
-            continue;
-        }
-
-        if path.is_file()
-            && config.watch.allow_root_archives
-            && extractor::is_archive_related_file(&path)
-        {
-            if let Some(target) = extractor::root_archive_target(&path) {
-                if target.exists() && extractor::has_archive_start(&target)? {
-                    candidates.insert(target);
-                }
-            }
-        }
-    }
-
-    Ok(candidates.into_iter().collect())
-}
-
-fn should_skip_entry(name: &str) -> bool {
-    matches!(
-        name,
-        "_extracted" | "_failed" | "_processing" | ".xdcc-worker"
-    )
+    crate::scan::scan_candidate_paths(config)
 }
 
 #[cfg(test)]

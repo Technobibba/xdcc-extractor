@@ -1,8 +1,7 @@
 use crate::{config::Config, extractor, history::History};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{
-    collections::BTreeSet,
-    env, fs,
+    env,
     path::{Path, PathBuf},
 };
 
@@ -38,15 +37,27 @@ pub fn print_check(config: &Config) -> Result<()> {
     println!("== XDCC Extractor Dry-Run Safety Check ==");
     println!();
 
-    let watch_dir = Path::new(&config.watch.directory);
+    let watch_dirs = config
+        .watch
+        .resolved_directories()
+        .into_iter()
+        .map(Path::new)
+        .collect::<Vec<_>>();
+
     let output_dir = Path::new(&config.output.directory);
+
     let history_dir = Path::new(&config.history.directory);
 
     let mut blockers = Vec::new();
     let mut warnings = Vec::new();
 
     println!("Konfiguration:");
-    println!("  watch: {}", watch_dir.display());
+    println!("  watch:");
+
+    for watch_dir in &watch_dirs {
+        println!("    {}", watch_dir.display());
+    }
+
     println!("  output: {}", output_dir.display());
     println!("  history: {}", history_dir.display());
     println!("  delete_archives: {}", config.extract.delete_archives);
@@ -58,15 +69,17 @@ pub fn print_check(config: &Config) -> Result<()> {
     );
     println!();
 
-    if !watch_dir.is_dir() {
-        blockers.push(format!(
-            "Watch-Ordner existiert nicht: {}",
-            watch_dir.display()
-        ));
+    for watch_dir in &watch_dirs {
+        if !watch_dir.is_dir() {
+            blockers.push(format!(
+                "Watch-Ordner existiert nicht: {}",
+                watch_dir.display()
+            ));
+        }
     }
 
-    if output_dir == watch_dir {
-        blockers.push("Output-Ordner darf nicht identisch mit dem Watch-Ordner sein".to_string());
+    if watch_dirs.iter().any(|watch_dir| output_dir == *watch_dir) {
+        blockers.push("Output-Ordner darf nicht identisch mit einem Watch-Ordner sein".to_string());
     }
 
     if !output_dir.exists() {
@@ -226,53 +239,7 @@ fn is_safe_cleanup_candidate(release_root: &Path, file: &Path) -> bool {
 }
 
 fn scan_candidates(config: &Config) -> Result<Vec<PathBuf>> {
-    let watch_dir = Path::new(&config.watch.directory);
-
-    if !watch_dir.is_dir() {
-        anyhow::bail!("Watch directory existiert nicht: {}", watch_dir.display());
-    }
-
-    let mut candidates = BTreeSet::new();
-
-    for entry in fs::read_dir(watch_dir)
-        .with_context(|| format!("Konnte Watch-Ordner nicht lesen: {}", watch_dir.display()))?
-    {
-        let entry = entry?;
-        let path = entry.path();
-        let name = entry.file_name().to_string_lossy().to_string();
-
-        if should_skip_entry(&name) {
-            continue;
-        }
-
-        if path.is_dir() {
-            if extractor::has_archive_start(&path)? {
-                candidates.insert(path);
-            }
-
-            continue;
-        }
-
-        if path.is_file()
-            && config.watch.allow_root_archives
-            && extractor::is_archive_related_file(&path)
-        {
-            if let Some(target) = extractor::root_archive_target(&path) {
-                if target.exists() && extractor::has_archive_start(&target)? {
-                    candidates.insert(target);
-                }
-            }
-        }
-    }
-
-    Ok(candidates.into_iter().collect())
-}
-
-fn should_skip_entry(name: &str) -> bool {
-    matches!(
-        name,
-        "_extracted" | "_failed" | "_processing" | ".xdcc-worker"
-    )
+    crate::scan::scan_candidate_paths(config)
 }
 
 #[cfg(test)]
