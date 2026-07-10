@@ -254,4 +254,12 @@ check_contains \
     ".watch-directory-list {" \
     "Watch-Ordner Styles"
 
+check_page \
+    "/settings/edit" \
+    'name="watch_directories"'
+
+check_page \
+    "/settings/edit" \
+    "Ein absoluter Container-Pfad pro Zeile"
+
 echo "Alle WebUI-Tests erfolgreich."

@@ -9,6 +9,7 @@ use std::{
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct SettingsForm {
+    pub(crate) watch_directories: String,
     pub(crate) stable_after: u64,
     pub(crate) allow_root_archives: Option<String>,
     pub(crate) delete_archives: Option<String>,
@@ -29,6 +30,8 @@ pub(crate) struct SettingsForm {
 }
 
 pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<PathBuf> {
+    let watch_directories = parse_watch_directories(&form.watch_directories)?;
+
     if form.stable_after == 0 {
         anyhow::bail!("Die Wartezeit bis zur Verarbeitung muss größer als 0 sein");
     }
@@ -53,6 +56,20 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
             path.display()
         )
     })?;
+
+    content = set_toml_value(
+        content,
+        "watch",
+        "directory",
+        &toml_string(&watch_directories[0]),
+    );
+
+    content = set_toml_value(
+        content,
+        "watch",
+        "directories",
+        &toml_string_array(&watch_directories[1..]),
+    );
 
     content = set_toml_value(
         content,
@@ -180,6 +197,51 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
     })?;
 
     Ok(backup_path)
+}
+
+fn parse_watch_directories(value: &str) -> Result<Vec<String>> {
+    let mut directories = Vec::<String>::new();
+
+    for line in value.lines() {
+        let directory = line.trim();
+
+        if directory.is_empty() {
+            continue;
+        }
+
+        if !Path::new(directory).is_absolute() {
+            anyhow::bail!(
+                "Watch-Ordner müssen absolute \
+Pfade sein: {}",
+                directory
+            );
+        }
+
+        if directories.iter().any(|existing| existing == directory) {
+            continue;
+        }
+
+        directories.push(directory.to_string());
+    }
+
+    if directories.is_empty() {
+        anyhow::bail!(
+            "Mindestens ein überwachter \
+Ordner muss eingetragen sein"
+        );
+    }
+
+    Ok(directories)
+}
+
+fn toml_string_array(values: &[String]) -> String {
+    let values = values
+        .iter()
+        .map(|value| toml_string(value))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    format!("[{values}]")
 }
 
 fn set_toml_value(content: String, section: &str, key: &str, value: &str) -> String {

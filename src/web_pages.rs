@@ -153,13 +153,51 @@ pub fn settings_edit_page_html(
   <form method="post" action="/settings/edit">
     <section class="card">
       <h2>Überwachung</h2>
+
       <div class="grid">
+        <div class="field full">
+          <label for="watch_directories">
+            Überwachte Ordner
+          </label>
+
+          <textarea
+            id="watch_directories"
+            name="watch_directories"
+            rows="6"
+            required
+            spellcheck="false"
+          >{watch_directories}</textarea>
+
+          <div class="small">
+            Ein absoluter Container-Pfad pro Zeile.
+            Leere Zeilen und doppelte Einträge werden
+            beim Speichern automatisch entfernt.
+          </div>
+        </div>
+
         <div>
-          <label for="stable_after">Wartezeit bis Verarbeitung in Sekunden</label>
-          <input id="stable_after" name="stable_after" type="number" min="1" value="{stable_after}">
+          <label for="stable_after">
+            Wartezeit bis Verarbeitung in Sekunden
+          </label>
+
+          <input
+            id="stable_after"
+            name="stable_after"
+            type="number"
+            min="1"
+            value="{stable_after}"
+          >
         </div>
       </div>
-      <label class="check"><input type="checkbox" name="allow_root_archives" {allow_root_archives}> Root-Archive erlauben</label>
+
+      <label class="check">
+        <input
+          type="checkbox"
+          name="allow_root_archives"
+          {allow_root_archives}
+        >
+        Root-Archive erlauben
+      </label>
     </section>
 
     <section class="card">
@@ -330,6 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 </html>"#,
         config_path = escape_html(&config_path.display().to_string()),
         message_html = message_html,
+        watch_directories = escape_html(&config.watch.resolved_directories().join("\n")),
         stable_after = config.watch.stable_after,
         allow_root_archives = checked(config.watch.allow_root_archives),
         dry_run = checked(config.extract.dry_run),
