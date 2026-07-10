@@ -136,7 +136,7 @@ pub fn settings_edit_page_html(
 
   <form method="post" action="/settings/edit">
     <section class="card">
-      <h2>Watch</h2>
+      <h2>Überwachung</h2>
       <div class="grid">
         <div>
           <label for="stable_after">Wartezeit bis Verarbeitung in Sekunden</label>
@@ -147,7 +147,7 @@ pub fn settings_edit_page_html(
     </section>
 
     <section class="card">
-      <h2>Extract</h2>
+      <h2>Entpacken</h2>
       <label class="check"><input type="checkbox" name="dry_run" {dry_run}> Dry-Run aktiv</label>
       <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
       <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
@@ -155,7 +155,7 @@ pub fn settings_edit_page_html(
     </section>
 
     <section class="card">
-      <h2>Retry / Startup</h2>
+      <h2>Wiederholung / Start</h2>
       <div class="grid">
         <div>
           <label for="retry_base_delay">Erste Wiederholung nach Sekunden</label>
@@ -402,14 +402,14 @@ pub fn settings_page_html(config: &Config) -> String {
 
   <div class="grid">
     <section class="card">
-      <h2>Watch</h2>
+      <h2>Überwachung</h2>
       <div class="row"><div class="key">Überwachter Ordner</div><div class="value"><code>{watch_dir}</code></div></div>
       <div class="row"><div class="key">Wartezeit bis Verarbeitung</div><div class="value">{stable_after}s</div></div>
       <div class="row"><div class="key">Root-Archive erlauben</div><div class="value">{allow_root_archives}</div></div>
     </section>
 
     <section class="card">
-      <h2>Extract</h2>
+      <h2>Entpacken</h2>
       <div class="row"><div class="key">Testmodus</div><div class="value">{dry_run}</div></div>
       <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
       <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
@@ -418,13 +418,13 @@ pub fn settings_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Output / History</h2>
+      <h2>Ausgabe / Verlauf</h2>
       <div class="row"><div class="key">Ausgabeordner</div><div class="value"><code>{output_dir}</code></div></div>
       <div class="row"><div class="key">History-Ordner</div><div class="value"><code>{history_dir}</code></div></div>
     </section>
 
     <section class="card">
-      <h2>Retry / Startup</h2>
+      <h2>Wiederholung / Start</h2>
       <div class="row"><div class="key">Erste Wiederholung nach</div><div class="value">{base_delay}s</div></div>
       <div class="row"><div class="key">Maximale Wiederholungs-Wartezeit</div><div class="value">{max_delay}s</div></div>
       <div class="row"><div class="key">Vorhandene Releases beim Start scannen</div><div class="value">{startup_scan}</div></div>
@@ -450,7 +450,7 @@ pub fn settings_page_html(config: &Config) -> String {
     </section>
 
     <section class="card wide">
-      <h2>Secrets</h2>
+      <h2>Vertrauliche Daten</h2>
       <div class="row"><div class="key">Gotify Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
       <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt nicht sichtbar</span></div></div>
     </section>
@@ -538,9 +538,9 @@ pub fn dashboard_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Dry Run</h2>
+      <h2>Testmodus</h2>
       <div class="value">{dry_run_badge}</div>
-      <div class="small">delete_archives: {delete_archives}</div>
+      <div class="small">Archive nach Erfolg löschen: {delete_archives}</div>
     </section>
 
     <section class="card">
@@ -550,25 +550,25 @@ pub fn dashboard_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>History</h2>
+      <h2>Verlauf</h2>
       <div class="value">{done} done / {failed} failed</div>
       <div class="small"><code>{history_dir}</code></div>
     </section>
 
     <section class="card">
-      <h2>Watch-Ordner</h2>
+      <h2>Überwachter Ordner</h2>
       <div class="small"><code>{watch_dir}</code></div>
     </section>
 
     <section class="card">
-      <h2>Output-Ordner</h2>
+      <h2>Ausgabeordner</h2>
       <div class="small"><code>{output_dir}</code></div>
     </section>
 
     <section class="card">
-      <h2>Root-Archive</h2>
+      <h2>Archive im Hauptordner</h2>
       <div class="value">{allow_root_archives}</div>
-      <div class="small">Botarr/XDCC Flat Downloads</div>
+      <div class="small">Direkte Downloads ohne Unterordner</div>
     </section>
 
     <section class="card">
