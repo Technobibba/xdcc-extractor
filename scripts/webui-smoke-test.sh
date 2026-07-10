@@ -116,6 +116,7 @@ check_page "/settings" "<h1>Einstellungen</h1>"
 check_page "/settings/edit" "<h1>Einstellungen bearbeiten</h1>"
 check_page "/logs" "<h1>Logs</h1>"
 check_page "/diagnostics" "<h1>Diagnose</h1>"
+check_page "/diagnostics" "<h2>Sicherungen</h2>"
 
 echo
 echo "== API-Endpunkte =="

@@ -825,6 +825,72 @@ pub fn diagnostics_page_html(config: &Config) -> String {
 
     let history = crate::web_history::history_counts(&config.history.directory);
 
+    let backups = crate::web_backups::backup_overview(config);
+
+    let backup_card_html = |title: &str, summary: &crate::web_backups::BackupSummary| -> String {
+        let status = if !summary.directory_exists {
+            r#"<span class="badge muted">noch nicht angelegt</span>"#
+        } else if !summary.readable {
+            r#"<span class="badge bad">nicht lesbar</span>"#
+        } else {
+            r#"<span class="badge ok">bereit</span>"#
+        };
+
+        let count_badge = if summary.count == 0 {
+            r#"<span class="badge muted">0</span>"#.to_string()
+        } else {
+            format!(r#"<span class="badge ok">{}</span>"#, summary.count)
+        };
+
+        let latest = match (
+            summary.latest_name.as_deref(),
+            summary.latest_age.as_deref(),
+        ) {
+            (Some(name), Some(age)) => {
+                format!("{}<br><code>{}</code>", escape_html(age), escape_html(name),)
+            }
+            _ => "noch keine Sicherung".to_string(),
+        };
+
+        format!(
+            r#"<section class="card">
+      <h2>{title}</h2>
+
+      <div class="row">
+        <div class="key">Status</div>
+        <div class="value">{status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Anzahl</div>
+        <div class="value">{count_badge}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Letzte Sicherung</div>
+        <div class="value">{latest}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Speicherort</div>
+        <div class="value"><code>{directory}</code></div>
+      </div>
+    </section>"#,
+            title = escape_html(title),
+            status = status,
+            count_badge = count_badge,
+            latest = latest,
+            directory = escape_html(&summary.directory.display().to_string()),
+        )
+    };
+
+    let backup_cards_html = [
+        backup_card_html("Konfigurations-Sicherungen", &backups.config),
+        backup_card_html("Verlaufs-Sicherungen", &backups.history),
+        backup_card_html("Passwortlisten-Sicherungen", &backups.passwords),
+    ]
+    .join("\n");
+
     format!(
         r#"<!doctype html>
 <html lang="de">
@@ -967,6 +1033,16 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         </div>
       </div>
     </section>
+
+    <section class="card wide">
+      <h2>Sicherungen</h2>
+      <div class="small">
+        Es werden nur Anzahl, Zeitpunkt und Speicherort angezeigt.
+        Inhalte der Sicherungen bleiben verborgen.
+      </div>
+    </section>
+
+    {backup_cards_html}
   </div>
 
   <footer>
@@ -993,5 +1069,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         gotify_status = gotify_status,
         gotify_url_status = yes_no_badge(gotify_url_configured),
         gotify_token_status = yes_no_badge(gotify_token_configured),
+        backup_cards_html = backup_cards_html,
     )
 }
