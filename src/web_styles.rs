@@ -230,6 +230,10 @@ textarea {
   font-size: 13px;
 }
 
+.gotify-priority-grid {
+  margin-top: 16px;
+}
+
 @media (max-width: 720px) {
   .grid {
     grid-template-columns: 1fr;

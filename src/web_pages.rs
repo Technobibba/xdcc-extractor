@@ -182,9 +182,9 @@ pub fn settings_edit_page_html(
           <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
         </div>
       </div>
-      <div class="small">Gotify URL und Token werden nie angezeigt. Leere Felder behalten die bestehenden Werte.</div>
+      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Leere Felder behalten die bisherigen Werte.</div>
 
-      <div class="grid">
+      <div class="grid gotify-priority-grid">
         <div>
           <label for="gotify_priority_success">Priorität bei Erfolg</label>
           <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
@@ -201,7 +201,7 @@ pub fn settings_edit_page_html(
       <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
       <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Gotify URL und Token werden nicht angezeigt. Beide können im Bearbeiten-Modus neu gesetzt werden.</div>
+      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Beide Werte können im Bereich „Bearbeiten“ neu gesetzt werden.</div>
     </section>
 
     <div class="actions">
@@ -214,7 +214,7 @@ pub fn settings_edit_page_html(
 
 
   <section class="card">
-    <h2>History zurücksetzen</h2>
+    <h2>Verlauf zurücksetzen</h2>
     <div class="small">Löscht alle <code>.done</code>- und <code>.failed</code>-Marker. Vorher wird ein Backup unter <code>/state/history-backups</code> erstellt.</div>
     <form method="post" action="/settings/history/reset">
       <label class="check"><input type="checkbox" name="confirm" value="RESET"> Ich verstehe, dass die History zurückgesetzt wird</label>
@@ -256,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {{
   }}
 
   button.addEventListener('click', async () => {{
-    const ok = confirm('Worker jetzt neu starten? Die WebUI ist kurz nicht erreichbar.');
+    const ok = confirm('Worker jetzt neu starten? Die WebUI ist für kurze Zeit nicht erreichbar.');
     if (!ok) {{
       return;
     }}
@@ -413,14 +413,14 @@ pub fn settings_page_html(config: &Config) -> String {
       <div class="row"><div class="key">Testmodus</div><div class="value">{dry_run}</div></div>
       <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
       <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
-      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt wird nicht angezeigt</span></div></div>
+      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt bleibt verborgen</span></div></div>
       <div class="row"><div class="key">Pfad zur Passwortliste</div><div class="value"><code>{password_file}</code></div></div>
     </section>
 
     <section class="card">
       <h2>Ausgabe / Verlauf</h2>
       <div class="row"><div class="key">Ausgabeordner</div><div class="value"><code>{output_dir}</code></div></div>
-      <div class="row"><div class="key">History-Ordner</div><div class="value"><code>{history_dir}</code></div></div>
+      <div class="row"><div class="key">Verlaufsordner</div><div class="value"><code>{history_dir}</code></div></div>
     </section>
 
     <section class="card">
@@ -452,7 +452,7 @@ pub fn settings_page_html(config: &Config) -> String {
     <section class="card wide">
       <h2>Vertrauliche Daten</h2>
       <div class="row"><div class="key">Gotify Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
-      <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt nicht sichtbar</span></div></div>
+      <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt bleibt verborgen</span></div></div>
     </section>
   </div>
 
