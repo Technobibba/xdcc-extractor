@@ -106,8 +106,12 @@ fn main() -> anyhow::Result<()> {
     let config_path = status::config_path_from_args();
     let config = config::Config::load(&config_path)?;
 
-    let watch_path = config.watch.directory.clone();
-    let watch_root = PathBuf::from(&watch_path);
+    let watch_roots = config
+        .watch
+        .resolved_directories()
+        .into_iter()
+        .map(PathBuf::from)
+        .collect::<Vec<_>>();
     let stable_after_seconds = config.watch.stable_after;
     let allow_root_archives = config.watch.allow_root_archives;
     let output_directory = PathBuf::from(&config.output.directory);
@@ -129,7 +133,11 @@ fn main() -> anyhow::Result<()> {
 
     info!("XDCC Extractor startet...");
     info!("Config-Datei: {}", config_path);
-    info!("Überwache {}", watch_root.display());
+    info!("Konfigurierte Watch-Ordner: {}", watch_roots.len());
+
+    for watch_root in &watch_roots {
+        info!("Überwache {}", watch_root.display());
+    }
     info!("Root-Archive erlaubt: {}", allow_root_archives);
     info!("Output-Ordner: {}", output_directory.display());
     info!(
@@ -157,21 +165,32 @@ fn main() -> anyhow::Result<()> {
         NotifyConfig::default(),
     )?;
 
-    watcher.watch(&watch_root, RecursiveMode::Recursive)?;
+    for watch_root in &watch_roots {
+        watcher.watch(watch_root, RecursiveMode::Recursive)?;
+
+        info!("Dateisystem-Watcher aktiv: {}", watch_root.display());
+    }
 
     let mut releases: Vec<ReleaseCandidate> = Vec::new();
     let mut known_ready: HashSet<PathBuf> = HashSet::new();
     let mut queue = JobQueue::new();
 
     if startup_scan_existing {
-        scan_existing_releases(&watch_root, &mut releases, &history, allow_root_archives)?;
+        for watch_root in &watch_roots {
+            scan_existing_releases(watch_root, &mut releases, &history, allow_root_archives)?;
+        }
+
+        info!(
+            "Startup-Scan über alle Watch-Ordner abgeschlossen: {} Kandidat(en)",
+            releases.len()
+        );
     } else {
         info!("Startup-Scan deaktiviert. Vorhandene Releases werden ignoriert.");
     }
 
     loop {
         match rx.recv_timeout(Duration::from_secs(5)) {
-            Ok(Ok(event)) => handle_event(event, &mut releases, &watch_root, allow_root_archives),
+            Ok(Ok(event)) => handle_event(event, &mut releases, &watch_roots, allow_root_archives),
             Ok(Err(e)) => error!("Watch Error: {:?}", e),
             Err(_) => {}
         }
@@ -260,12 +279,21 @@ fn scan_existing_releases(
 fn handle_event(
     event: Event,
     releases: &mut Vec<ReleaseCandidate>,
-    watch_path: &Path,
+    watch_paths: &[PathBuf],
     allow_root_archives: bool,
 ) {
     match event.kind {
         EventKind::Create(_) | EventKind::Modify(_) => {
             for path in event.paths {
+                let Some(watch_path) = matching_watch_root(&path, watch_paths) else {
+                    warn!(
+                        "Event liegt außerhalb der konfigurierten Watch-Ordner: {}",
+                        path.display()
+                    );
+
+                    continue;
+                };
+
                 if is_ignored_path(&path) {
                     info!("Ignoriere internen Pfad: {}", path.display());
                     continue;
@@ -292,6 +320,14 @@ fn handle_event(
         }
         _ => {}
     }
+}
+
+fn matching_watch_root<'a>(path: &Path, watch_paths: &'a [PathBuf]) -> Option<&'a Path> {
+    watch_paths
+        .iter()
+        .filter(|root| path.starts_with(root.as_path()))
+        .max_by_key(|root| root.components().count())
+        .map(|root| root.as_path())
 }
 
 fn is_ignored_path(path: &Path) -> bool {
