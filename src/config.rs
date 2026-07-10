@@ -36,13 +36,41 @@ impl Config {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct WatchConfig {
+    #[serde(default)]
     pub directory: String,
+
+    #[serde(default)]
+    pub directories: Vec<String>,
 
     #[serde(default = "default_stable_after")]
     pub stable_after: u64,
 
     #[serde(default)]
     pub allow_root_archives: bool,
+}
+
+impl WatchConfig {
+    pub fn resolved_directories(&self) -> Vec<&str> {
+        let mut directories = Vec::new();
+
+        for directory in std::iter::once(self.directory.as_str())
+            .chain(self.directories.iter().map(String::as_str))
+        {
+            let directory = directory.trim();
+
+            if directory.is_empty() {
+                continue;
+            }
+
+            if directories.contains(&directory) {
+                continue;
+            }
+
+            directories.push(directory);
+        }
+
+        directories
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -244,8 +272,10 @@ pub fn load_config(path: &Path) -> Result<Config> {
 }
 
 fn validate_config(config: &Config) -> Result<()> {
-    if config.watch.directory.trim().is_empty() {
-        anyhow::bail!("Config ungültig: watch.directory darf nicht leer sein");
+    if config.watch.resolved_directories().is_empty() {
+        anyhow::bail!(
+            "Config ungültig: watch.directory oder watch.directories muss mindestens einen Ordner enthalten"
+        );
     }
 
     if config.watch.stable_after == 0 {
@@ -357,6 +387,8 @@ directory="/downloads"
         let config = load_config(&config_file).expect("load config");
 
         assert_eq!(config.watch.directory, "/downloads");
+        assert!(config.watch.directories.is_empty());
+        assert_eq!(config.watch.resolved_directories(), vec!["/downloads"]);
         assert_eq!(config.watch.stable_after, 30);
         assert!(config.extract.delete_archives);
         assert!(config.extract.dry_run);
@@ -366,6 +398,63 @@ directory="/downloads"
         assert_eq!(config.retry.base_delay, 60);
         assert_eq!(config.retry.max_delay, 1800);
         assert!(!config.notifications.gotify.enabled);
+    }
+
+    #[test]
+    fn combines_legacy_and_additional_watch_directories() {
+        let dir = tempdir().expect("tempdir");
+
+        let config_file = dir.path().join("config.toml");
+
+        fs::write(
+            &config_file,
+            r#"
+[watch]
+directory="/downloads"
+
+directories=[
+    "/downloads2",
+    " /downloads3 ",
+    "/downloads"
+]
+"#,
+        )
+        .expect("write");
+
+        let config = load_config(&config_file).expect("load config");
+
+        assert_eq!(
+            config.watch.resolved_directories(),
+            vec!["/downloads", "/downloads2", "/downloads3",]
+        );
+    }
+
+    #[test]
+    fn accepts_watch_directories_without_legacy_directory() {
+        let dir = tempdir().expect("tempdir");
+
+        let config_file = dir.path().join("config.toml");
+
+        fs::write(
+            &config_file,
+            r#"
+[watch]
+directories=[
+    "/downloads-a",
+    "/downloads-b"
+]
+"#,
+        )
+        .expect("write");
+
+        let config = load_config(&config_file).expect("load config");
+
+        assert!(config.watch.directory.is_empty());
+
+        assert_eq!(
+            config.watch.resolved_directories(),
+            vec!["/downloads-a", "/downloads-b",]
+        );
     }
 
     #[test]
