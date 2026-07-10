@@ -15,6 +15,7 @@ mod web;
 mod web_api;
 mod web_assets;
 mod web_backups;
+mod web_disk;
 mod web_history;
 mod web_maintenance;
 mod web_pages;

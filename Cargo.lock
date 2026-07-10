@@ -1509,6 +1509,7 @@ dependencies = [
  "anyhow",
  "axum",
  "base64",
+ "libc",
  "notify",
  "regex",
  "serde",
