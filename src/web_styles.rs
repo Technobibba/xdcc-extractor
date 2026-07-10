@@ -257,7 +257,80 @@ input[type="number"] {
   .grid {
     grid-template-columns: 1fr;
   }
-}"###;
+}
+
+.notice {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  line-height: 1.5;
+}
+
+.notice-success {
+  border-color: rgba(37, 194, 110, .5);
+  background: rgba(37, 194, 110, .08);
+}
+
+.notice-error {
+  border-color: rgba(255, 92, 92, .55);
+  background: rgba(255, 92, 92, .08);
+}
+
+.notice.restart-required {
+  border-color: rgba(240, 160, 32, .6);
+  background: rgba(240, 160, 32, .1);
+  color: var(--text);
+}
+
+.notice.restart-required::before {
+  content: "Neustart erforderlich";
+  display: block;
+  margin-bottom: 5px;
+  color: var(--warn);
+  font-weight: 800;
+}
+
+.button.is-loading {
+  position: relative;
+}
+
+.button.is-loading::before {
+  content: "";
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: settings-button-spin .7s linear infinite;
+}
+
+@keyframes settings-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+button.button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.restart-status {
+  min-height: 20px;
+  margin: -6px 0 18px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.restart-status.restart-pending {
+  color: var(--warn);
+  font-weight: 700;
+}
+"###;
 
 pub async fn settings_edit_css() -> impl IntoResponse {
     (
@@ -635,7 +708,101 @@ footer {
   .scan-actions {
     text-align: left;
   }
-}"###;
+}
+
+.button.is-loading {
+  position: relative;
+}
+
+.button.is-loading::before {
+  content: "";
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  margin-right: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -2px;
+  animation: button-spin .7s linear infinite;
+}
+
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast-region {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 1000;
+  display: grid;
+  gap: 10px;
+  width: min(420px, calc(100vw - 36px));
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: start;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #1d222c;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity .18s ease,
+    transform .18s ease;
+  pointer-events: auto;
+}
+
+.toast-success {
+  border-color: rgba(37, 194, 110, .5);
+}
+
+.toast-error {
+  border-color: rgba(255, 92, 92, .6);
+}
+
+.toast-text {
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.toast-close {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  color: var(--text);
+}
+
+.toast.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+@media (max-width: 720px) {
+  .toast-region {
+    top: 10px;
+    right: 10px;
+    width: calc(100vw - 20px);
+  }
+}
+"###;
 
 pub async fn dashboard_css() -> impl IntoResponse {
     (

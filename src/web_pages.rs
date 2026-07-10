@@ -104,8 +104,22 @@ pub fn settings_edit_page_html(
 ) -> String {
     let message_html = message
         .map(|message| {
+            let notice_class =
+                if message.contains("Neustart") || message.contains("starte den Worker neu") {
+                    "notice restart-required"
+                } else if message.contains("fehlgeschlagen")
+                    || message.contains("konnte nicht")
+                    || message.contains("nicht zurückgesetzt")
+                    || message.contains("nicht ersetzt")
+                {
+                    "notice notice-error"
+                } else {
+                    "notice notice-success"
+                };
+
             format!(
-                r#"<section class="notice">{}</section>"#,
+                r#"<section class="{}" role="status">{}</section>"#,
+                notice_class,
                 escape_html(message)
             )
         })
@@ -211,7 +225,7 @@ pub fn settings_edit_page_html(
       <button id="restart-worker" class="button" type="button">Worker neu starten</button>
       <a class="button" href="/settings">Abbrechen</a>
     </div>
-    <div id="restart-status" class="small"></div>
+    <div id="restart-status" class="restart-status" role="status" aria-live="polite"></div>
   </form>
 
 
@@ -250,6 +264,29 @@ pub fn settings_edit_page_html(
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {{
+  document.querySelectorAll('form').forEach((form) => {{
+    form.addEventListener('submit', () => {{
+      const submit = form.querySelector(
+        'button[type="submit"]'
+      );
+
+      if (!submit) {{
+        return;
+      }}
+
+      const text = submit.textContent || '';
+
+      submit.disabled = true;
+      submit.classList.add('is-loading');
+
+      submit.textContent = text
+        .toLowerCase()
+        .includes('speichern')
+        ? 'Wird gespeichert …'
+        : 'Wird ausgeführt …';
+    }});
+  }});
+
   const button = document.getElementById('restart-worker');
   const status = document.getElementById('restart-status');
 
@@ -264,13 +301,23 @@ document.addEventListener('DOMContentLoaded', () => {{
     }}
 
     button.disabled = true;
-    status.textContent = 'Neustart wird ausgelöst. Seite lädt gleich neu...';
+    button.classList.add('is-loading');
+    button.textContent = 'Neustart läuft …';
+
+    status.className = 'restart-status restart-pending';
+    status.textContent =
+      'Neustart wird ausgelöst. Die WebUI wird automatisch neu geladen …';
 
     try {{
       await fetch('/api/restart', {{ method: 'POST', cache: 'no-store' }});
     }} catch (error) {{
       // Beim Neustart kann die Verbindung abbrechen. Das ist hier erwartbar.
     }}
+
+    setTimeout(() => {{
+      status.textContent =
+        'Worker startet neu. Warte auf die WebUI …';
+    }}, 2500);
 
     setTimeout(() => {{
       window.location.href = '/settings/edit';
@@ -533,6 +580,13 @@ pub fn dashboard_page_html(config: &Config) -> String {
     <a class="button" href="/logs">Logs</a>
     <a class="button" href="/diagnostics">Diagnose</a>
   </div>
+
+  <div
+    id="toast-region"
+    class="toast-region"
+    aria-live="polite"
+    aria-atomic="true"
+  ></div>
 
   <div class="grid">
     <section class="card">
