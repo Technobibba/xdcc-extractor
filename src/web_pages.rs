@@ -588,6 +588,15 @@ pub fn dashboard_page_html(config: &Config) -> String {
     aria-atomic="true"
   ></div>
 
+  <div
+    id="auto-refresh-status"
+    class="auto-refresh-status"
+    role="status"
+    aria-live="polite"
+  >
+    Automatische Aktualisierung: alle 30 Sekunden.
+  </div>
+
   <div class="grid">
     <section class="card">
       <h2>Worker</h2>

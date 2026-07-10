@@ -802,6 +802,32 @@ footer {
     width: calc(100vw - 20px);
   }
 }
+
+.auto-refresh-status {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(154, 164, 178, .06);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.auto-refresh-status.is-running {
+  border-color: rgba(240, 160, 32, .45);
+  color: var(--warn);
+}
+
+.auto-refresh-status.is-paused {
+  border-color: rgba(154, 164, 178, .3);
+  color: var(--muted);
+}
+
+.auto-refresh-status.is-success {
+  border-color: rgba(37, 194, 110, .35);
+  color: var(--ok);
+}
 "###;
 
 pub async fn dashboard_css() -> impl IntoResponse {

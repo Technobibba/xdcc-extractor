@@ -4,6 +4,11 @@ pub async fn app_js() -> impl IntoResponse {
     (
         [("content-type", "application/javascript; charset=utf-8")],
         r#"
+const AUTO_REFRESH_INTERVAL_MS = 30000;
+
+let autoRefreshTimer = null;
+let autoRefreshRunning = false;
+
 document.addEventListener('DOMContentLoaded', () => {
   const refreshScanButton =
     document.getElementById('refresh-scan');
@@ -15,10 +20,14 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshScanButton.addEventListener(
       'click',
       async () => {
+        clearAutoRefreshTimer();
+
         await refreshScan(
           refreshScanButton,
           true
         );
+
+        scheduleAutoRefresh();
       }
     );
   }
@@ -27,10 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshFailuresButton.addEventListener(
       'click',
       async () => {
+        clearAutoRefreshTimer();
+
         await refreshFailures(
           refreshFailuresButton,
           true
         );
+
+        scheduleAutoRefresh();
       }
     );
   }
@@ -99,6 +112,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      clearAutoRefreshTimer();
+
       setActionButtonsDisabled(true);
 
       setButtonBusy(
@@ -150,10 +165,189 @@ document.addEventListener('DOMContentLoaded', () => {
         );
 
         setActionButtonsDisabled(false);
+        scheduleAutoRefresh();
       }
     }
   );
+
+  initializeAutoRefresh();
 });
+
+
+function initializeAutoRefresh() {
+  const scanTarget =
+    document.getElementById(
+      'scan-content'
+    );
+
+  const failureTarget =
+    document.getElementById(
+      'failure-content'
+    );
+
+  const status =
+    document.getElementById(
+      'auto-refresh-status'
+    );
+
+  if (
+    !scanTarget ||
+    !failureTarget ||
+    !status
+  ) {
+    return;
+  }
+
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) {
+        clearAutoRefreshTimer();
+
+        updateAutoRefreshStatus(
+          'Automatische Aktualisierung pausiert, solange dieser Tab nicht aktiv ist.',
+          'paused'
+        );
+
+        return;
+      }
+
+      runAutoRefresh();
+    }
+  );
+
+  scheduleAutoRefresh();
+}
+
+function clearAutoRefreshTimer() {
+  if (autoRefreshTimer === null) {
+    return;
+  }
+
+  window.clearTimeout(
+    autoRefreshTimer
+  );
+
+  autoRefreshTimer = null;
+}
+
+function armAutoRefreshTimer() {
+  clearAutoRefreshTimer();
+
+  autoRefreshTimer =
+    window.setTimeout(
+      runAutoRefresh,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+}
+
+function scheduleAutoRefresh() {
+  if (document.hidden) {
+    clearAutoRefreshTimer();
+
+    updateAutoRefreshStatus(
+      'Automatische Aktualisierung pausiert, solange dieser Tab nicht aktiv ist.',
+      'paused'
+    );
+
+    return;
+  }
+
+  updateAutoRefreshStatus(
+    'Automatische Aktualisierung: alle 30 Sekunden.',
+    'ready'
+  );
+
+  armAutoRefreshTimer();
+}
+
+async function runAutoRefresh() {
+  if (document.hidden) {
+    scheduleAutoRefresh();
+    return;
+  }
+
+  if (autoRefreshRunning) {
+    armAutoRefreshTimer();
+    return;
+  }
+
+  autoRefreshRunning = true;
+
+  clearAutoRefreshTimer();
+
+  updateAutoRefreshStatus(
+    'Dashboard wird automatisch aktualisiert …',
+    'running'
+  );
+
+  try {
+    await Promise.all([
+      refreshScan(null, false),
+      refreshFailures(null, false)
+    ]);
+
+    const time =
+      new Date()
+        .toLocaleTimeString();
+
+    updateAutoRefreshStatus(
+      `Zuletzt automatisch aktualisiert: ${time} · nächste Prüfung in 30 Sekunden.`,
+      'success'
+    );
+  } finally {
+    autoRefreshRunning = false;
+
+    if (document.hidden) {
+      updateAutoRefreshStatus(
+        'Automatische Aktualisierung pausiert, solange dieser Tab nicht aktiv ist.',
+        'paused'
+      );
+    } else {
+      armAutoRefreshTimer();
+    }
+  }
+}
+
+function updateAutoRefreshStatus(
+  message,
+  state
+) {
+  const status =
+    document.getElementById(
+      'auto-refresh-status'
+    );
+
+  if (!status) {
+    return;
+  }
+
+  status.textContent = message;
+
+  status.classList.remove(
+    'is-running',
+    'is-paused',
+    'is-success'
+  );
+
+  if (state === 'running') {
+    status.classList.add(
+      'is-running'
+    );
+  }
+
+  if (state === 'paused') {
+    status.classList.add(
+      'is-paused'
+    );
+  }
+
+  if (state === 'success') {
+    status.classList.add(
+      'is-success'
+    );
+  }
+}
 
 async function refreshScan(
   button = null,
