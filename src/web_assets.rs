@@ -39,12 +39,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (action === 'clear-failed') {
       endpoint = '/api/clear-failed';
-      confirmText = `Failed-Marker zurücksetzen?\n\n${path}`;
+      confirmText = `Fehlerstatus für dieses Release zurücksetzen?\n\n${path}`;
     }
 
     if (action === 'process') {
       endpoint = '/api/process';
-      confirmText = `Release jetzt manuell verarbeiten?\n\n${path}`;
+      confirmText = `Dieses Release jetzt manuell verarbeiten?\n\n${path}`;
     }
 
     if (!endpoint) {
@@ -107,7 +107,7 @@ async function refreshScan(button) {
 
     target.innerHTML = renderScan(data);
   } catch (error) {
-    target.innerHTML = `<div class="error">Scan konnte nicht aktualisiert werden: ${escapeHtml(String(error))}</div>`;
+    target.innerHTML = `<div class="error">Releases konnten nicht neu geprüft werden: ${escapeHtml(String(error))}</div>`;
   } finally {
     if (button) {
       button.disabled = false;
@@ -148,7 +148,7 @@ async function refreshFailures(button) {
 
 function renderScan(data) {
   if (!data.ok) {
-    return `<div class="error">Scan-Fehler: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
+    return `<div class="error">Prüfung fehlgeschlagen: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
   }
 
   const candidates = data.candidates || [];
@@ -167,8 +167,8 @@ function renderScan(data) {
   let html = `
     <div class="scan-summary">
       <span class="badge ok">new: ${counts.new}</span>
-      <span class="badge muted">done: ${counts.done}</span>
-      <span class="badge bad">failed: ${counts.failed}</span>
+      <span class="badge muted">erledigt: ${counts.done}</span>
+      <span class="badge bad">fehlgeschlagen: ${counts.failed}</span>
       <span class="badge muted">gesamt: ${candidates.length}</span>
     </div>
     <div class="small">Aktualisiert: ${escapeHtml(new Date().toLocaleTimeString())}</div>
@@ -196,7 +196,7 @@ function renderScan(data) {
   }
 
   if (candidates.length > 25) {
-    html += `<div class="small">Weitere ${candidates.length - 25} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>`;
+    html += `<div class="small">Weitere ${candidates.length - 25} Einträge werden nicht angezeigt.</div>`;
   }
 
   html += `</div>`;
@@ -206,14 +206,14 @@ function renderScan(data) {
 
 function renderFailures(data) {
   if (!data.ok) {
-    return `<div class="error">Fehler-API: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
+    return `<div class="error">Fehlerliste konnte nicht geladen werden: ${escapeHtml(data.error || 'Unbekannter Fehler')}</div>`;
   }
 
   const failures = data.failures || [];
 
   let html = `
     <div class="scan-summary">
-      <span class="badge bad">failed: ${failures.length}</span>
+      <span class="badge bad">fehlgeschlagen: ${failures.length}</span>
       <span class="badge muted">Aktualisiert: ${escapeHtml(new Date().toLocaleTimeString())}</span>
     </div>
   `;
@@ -237,7 +237,7 @@ function renderFailures(data) {
         <div class="scan-path">${escapeHtml(path)}</div>
         <div class="small">${escapeHtml(failure.reason || 'Kein Grund gefunden')}</div>
         <div class="scan-actions">
-          <button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapeHtml(path)}">Failed zurücksetzen</button>
+          <button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapeHtml(path)}">Fehlerstatus zurücksetzen</button>
         </div>
       </div>
     `;
@@ -252,11 +252,11 @@ function actionButton(state, path) {
   const escapedPath = escapeHtml(path);
 
   if (state === 'failed') {
-    return `<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapedPath}">Failed zurücksetzen</button>`;
+    return `<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="${escapedPath}">Fehlerstatus zurücksetzen</button>`;
   }
 
   if (state === 'new') {
-    return `<button class="button small-button" type="button" data-action="process" data-path="${escapedPath}">Verarbeiten</button>`;
+    return `<button class="button small-button" type="button" data-action="process" data-path="${escapedPath}">Jetzt verarbeiten</button>`;
   }
 
   return '';

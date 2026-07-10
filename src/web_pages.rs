@@ -40,8 +40,8 @@ pub fn logs_page_html() -> String {
   </div>
 
   <section class="card">
-    <pre id="log-output" class="logbox">Lade Logs...</pre>
-    <div class="small">Zeigt die letzten 300 Logzeilen aus dem laufenden Prozess. Secrets werden nicht aus Config oder Passwortliste gelesen.</div>
+    <pre id="log-output" class="logbox">Logs werden geladen...</pre>
+    <div class="small">Zeigt die letzten 300 Logzeilen des laufenden Workers. Vertrauliche Daten werden nicht aus der Konfigurationsdatei oder der Passwortliste gelesen.</div>
   </section>
 </main>
 
@@ -123,7 +123,7 @@ pub fn settings_edit_page_html(
 <body>
 <main>
   <h1>Einstellungen bearbeiten</h1>
-  <div class="sub">Config: <code>{config_path}</code></div>
+  <div class="sub">Konfigurationsdatei: <code>{config_path}</code></div>
 
     <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
@@ -148,7 +148,7 @@ pub fn settings_edit_page_html(
 
     <section class="card">
       <h2>Entpacken</h2>
-      <label class="check"><input type="checkbox" name="dry_run" {dry_run}> Dry-Run aktiv</label>
+      <label class="check"><input type="checkbox" name="dry_run" {dry_run}> Testmodus aktiv</label>
       <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
       <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
       <div class="small">Passwortdatei und Passwortlisten-Inhalt werden hier nicht bearbeitet.</div>
@@ -166,7 +166,7 @@ pub fn settings_edit_page_html(
           <input id="retry_max_delay" name="retry_max_delay" type="number" min="1" value="{retry_max_delay}">
         </div>
       </div>
-      <label class="check"><input type="checkbox" name="startup_scan_existing" {startup_scan_existing}> Beim Start vorhandene Releases scannen</label>
+      <label class="check"><input type="checkbox" name="startup_scan_existing" {startup_scan_existing}> Vorhandene Releases beim Start prüfen</label>
     </section>
 
     <section class="card">
@@ -174,11 +174,11 @@ pub fn settings_edit_page_html(
       <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
       <div class="grid">
         <div class="field full">
-          <label for="gotify_url">Gotify URL neu setzen</label>
+          <label for="gotify_url">Gotify-URL neu setzen</label>
           <input id="gotify_url" name="gotify_url" type="text" value="" placeholder="Leer lassen = bestehende URL behalten" autocomplete="off">
         </div>
         <div class="field full">
-          <label for="gotify_token">Gotify Token neu setzen</label>
+          <label for="gotify_token">Gotify-Token neu setzen</label>
           <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
         </div>
       </div>
@@ -205,8 +205,8 @@ pub fn settings_edit_page_html(
     </section>
 
     <div class="actions">
-      <button class="button" type="submit">Speichern</button>
-      <button id="restart-worker" class="button" type="button">Neustart</button>
+      <button class="button" type="submit">Änderungen speichern</button>
+      <button id="restart-worker" class="button" type="button">Worker neu starten</button>
       <a class="button" href="/settings">Abbrechen</a>
     </div>
     <div id="restart-status" class="small"></div>
@@ -215,16 +215,16 @@ pub fn settings_edit_page_html(
 
   <section class="card">
     <h2>Verlauf zurücksetzen</h2>
-    <div class="small">Löscht alle <code>.done</code>- und <code>.failed</code>-Marker. Vorher wird ein Backup unter <code>/state/history-backups</code> erstellt.</div>
+    <div class="small">Entfernt alle Verlaufsmarkierungen für erfolgreiche und fehlgeschlagene Releases. Vorher wird eine Sicherung unter <code>/state/history-backups</code> erstellt.</div>
     <form method="post" action="/settings/history/reset">
-      <label class="check"><input type="checkbox" name="confirm" value="RESET"> Ich verstehe, dass die History zurückgesetzt wird</label>
-      <button class="button danger" type="submit">History löschen/resetten</button>
+      <label class="check"><input type="checkbox" name="confirm" value="RESET"> Ich bestätige, dass der Verlauf zurückgesetzt wird</label>
+      <button class="button danger" type="submit">Verlauf zurücksetzen</button>
     </form>
   </section>
 
   <section class="card">
     <h2>Passwortliste verwalten</h2>
-    <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird ein Backup unter <code>/state/password-backups</code> erstellt.</div>
+    <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird eine Sicherung unter <code>/state/password-backups</code> erstellt.</div>
 
     <form method="post" action="/settings/passwords/add">
       <label for="password_add">Passwort hinzufügen</label>
@@ -235,9 +235,9 @@ pub fn settings_edit_page_html(
     </form>
 
     <form method="post" action="/settings/passwords/replace">
-      <label for="passwords_replace">Passwortliste komplett ersetzen</label>
+      <label for="passwords_replace">Gesamte Passwortliste ersetzen</label>
       <textarea id="passwords_replace" name="passwords" placeholder="Ein Passwort pro Zeile"></textarea>
-      <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich verstehe, dass die bisherige Passwortliste ersetzt wird</label>
+      <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich bestätige, dass die bisherige Passwortliste ersetzt wird</label>
       <div class="actions">
         <button class="button danger" type="submit">Passwortliste ersetzen</button>
       </div>
@@ -433,7 +433,7 @@ pub fn settings_page_html(config: &Config) -> String {
     <section class="card">
       <h2>Gotify</h2>
       <div class="row"><div class="key">Gotify aktiv</div><div class="value">{gotify_enabled}</div></div>
-      <div class="row"><div class="key">Gotify URL konfiguriert</div><div class="value">{gotify_url_configured}</div></div>
+      <div class="row"><div class="key">Gotify-URL konfiguriert</div><div class="value">{gotify_url_configured}</div></div>
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
@@ -551,7 +551,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
 
     <section class="card">
       <h2>Verlauf</h2>
-      <div class="value">{done} done / {failed} failed</div>
+      <div class="value">{done} erledigt / {failed} fehlgeschlagen</div>
       <div class="small"><code>{history_dir}</code></div>
     </section>
 
@@ -581,8 +581,8 @@ pub fn dashboard_page_html(config: &Config) -> String {
 
     <section class="card wide">
       <div class="card-head">
-        <h2>Scan</h2>
-        <button id="refresh-scan" class="button" type="button">Scan aktualisieren</button>
+        <h2>Releases</h2>
+        <button id="refresh-scan" class="button" type="button">Releases neu prüfen</button>
       </div>
       <div id="scan-content">
         {scan_html}
@@ -592,7 +592,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
     <section class="card wide">
       <div class="card-head">
         <h2>Letzte Fehler</h2>
-        <button id="refresh-failures" class="button" type="button">Fehler aktualisieren</button>
+        <button id="refresh-failures" class="button" type="button">Fehlerliste aktualisieren</button>
       </div>
       <div id="failure-content">
         {failures_html}
@@ -601,7 +601,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
   </div>
 
   <footer>
-    Dashboard mit manuellen Aktionen. Verarbeitung respektiert dry_run, delete_archives, History und Gotify.
+    Manuelle Verarbeitung berücksichtigt Testmodus, Archivbereinigung, Verlauf und Gotify.
   </footer>
 </main>
 <script src="/assets/app.js"></script>
@@ -629,7 +629,7 @@ fn scan_summary_html(config: &Config) -> String {
         Ok(candidates) => candidates,
         Err(err) => {
             return format!(
-                r#"<div class="error">Scan-Fehler: {}</div>"#,
+                r#"<div class="error">Releases konnten nicht geprüft werden: {}</div>"#,
                 escape_html(&format!("{:?}", err))
             );
         }
@@ -651,8 +651,8 @@ fn scan_summary_html(config: &Config) -> String {
     let mut html = format!(
         r#"<div class="scan-summary">
 <span class="badge ok">new: {}</span>
-<span class="badge muted">done: {}</span>
-<span class="badge bad">failed: {}</span>
+<span class="badge muted">erledigt: {}</span>
+<span class="badge bad">fehlgeschlagen: {}</span>
 <span class="badge muted">gesamt: {}</span>
 </div>"#,
         new_count,
@@ -688,7 +688,7 @@ fn scan_summary_html(config: &Config) -> String {
 
     if candidates.len() > 25 {
         html.push_str(&format!(
-            r#"<div class="small">Weitere {} Kandidaten ausgeblendet. Vollständig über <code>/api/scan</code>.</div>"#,
+            r#"<div class="small">Weitere {} Einträge werden nicht angezeigt.</div>"#,
             candidates.len() - 25
         ));
     }
@@ -700,11 +700,11 @@ fn scan_summary_html(config: &Config) -> String {
 fn action_button_html(state: &str, path: &str) -> String {
     match state {
         "failed" => format!(
-            r#"<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button>"#,
+            r#"<button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Fehlerstatus zurücksetzen</button>"#,
             escape_html(path)
         ),
         "new" => format!(
-            r#"<button class="button small-button" type="button" data-action="process" data-path="{}">Verarbeiten</button>"#,
+            r#"<button class="button small-button" type="button" data-action="process" data-path="{}">Jetzt verarbeiten</button>"#,
             escape_html(path)
         ),
         _ => String::new(),
@@ -723,7 +723,7 @@ fn failures_html(config: &Config) -> String {
     };
 
     let mut html = format!(
-        r#"<div class="scan-summary"><span class="badge bad">failed: {}</span></div>"#,
+        r#"<div class="scan-summary"><span class="badge bad">fehlgeschlagen: {}</span></div>"#,
         entries.len()
     );
 
@@ -740,7 +740,7 @@ fn failures_html(config: &Config) -> String {
 <div><span class="badge bad">{}</span> <span class="small">Fehlversuche: {}</span></div>
 <div class="scan-path">{}</div>
 <div class="small">{}</div>
-<div class="scan-actions"><button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Failed zurücksetzen</button></div>
+<div class="scan-actions"><button class="button small-button danger-button" type="button" data-action="clear-failed" data-path="{}">Fehlerstatus zurücksetzen</button></div>
 </div>"#,
             escape_html(&entry.error_class),
             entry.attempts,

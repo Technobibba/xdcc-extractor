@@ -206,14 +206,14 @@ async fn update_settings(
     ) {
         Ok(backup_path) => {
             info!(
-                "WebUI Einstellungen gespeichert: {} Backup: {}",
+                "WebUI Einstellungen gespeichert: {} Sicherung: {}",
                 state.config_path.display(),
                 backup_path.display()
             );
-            "Gespeichert. Backup wurde erstellt. Neustart erforderlich, damit der Worker die neuen Werte übernimmt."
+            "Gespeichert. Eine Sicherung wurde erstellt. Neustart erforderlich, damit der Worker die neuen Werte übernimmt."
                 .to_string()
         }
-        Err(err) => format!("Speichern fehlgeschlagen: {err:?}"),
+        Err(err) => format!("Einstellungen konnten nicht gespeichert werden: {err:?}"),
     };
 
     let config = match Config::load(&state.config_path) {
@@ -242,20 +242,20 @@ async fn settings_history_reset(
             match crate::web_maintenance::reset_history_files(&config.history.directory) {
                 Ok((removed, backup_path)) => {
                     info!(
-                        "History über WebUI zurückgesetzt: {} Marker entfernt, Backup: {}",
+                        "History über WebUI zurückgesetzt: {} Marker entfernt, Sicherung: {}",
                         removed,
                         backup_path.display()
                     );
 
                     format!(
-                        "History wurde zurückgesetzt. {} Marker entfernt. Backup wurde erstellt. Neustart empfohlen.",
+                        "Der Verlauf wurde zurückgesetzt. {} Markierung(en) entfernt. Eine Sicherung wurde erstellt. Bitte starte den Worker neu, damit die Änderungen aktiv werden.",
                         removed
                     )
                 }
-                Err(err) => format!("History konnte nicht zurückgesetzt werden: {err:?}"),
+                Err(err) => format!("Der Verlauf konnte nicht zurückgesetzt werden: {err:?}"),
             }
         }
-        _ => "History wurde nicht gelöscht. Bitte Bestätigung aktivieren.".to_string(),
+        _ => "Der Verlauf wurde nicht zurückgesetzt. Bitte bestätige die Aktion.".to_string(),
     };
 
     let config = current_config_for_page(&state);
@@ -275,7 +275,7 @@ async fn settings_password_add(
     let message = match crate::web_maintenance::append_password_to_file(&config, &form.password) {
         Ok(_) => {
             info!("Passwortliste über WebUI erweitert.");
-            "Passwort wurde hinzugefügt. Backup wurde erstellt. Neustart erforderlich, damit der Worker die neue Passwortliste lädt.".to_string()
+            "Das Passwort wurde hinzugefügt und eine Sicherung erstellt. Bitte starte den Worker neu, damit die neue Passwortliste geladen wird.".to_string()
         }
         Err(err) => format!("Passwort konnte nicht hinzugefügt werden: {err:?}"),
     };
@@ -300,14 +300,14 @@ async fn settings_password_replace(
                 Ok(count) => {
                     info!("Passwortliste über WebUI ersetzt: {} Einträge.", count);
                     format!(
-                        "Passwortliste wurde ersetzt. {} Passwort/Passwörter gespeichert. Backup wurde erstellt. Neustart erforderlich.",
+                        "Passwortliste wurde ersetzt. {} Passwort/Passwörter gespeichert. Eine Sicherung wurde erstellt. Neustart erforderlich.",
                         count
                     )
                 }
                 Err(err) => format!("Passwortliste konnte nicht ersetzt werden: {err:?}"),
             }
         }
-        _ => "Passwortliste wurde nicht ersetzt. Bitte Bestätigung aktivieren.".to_string(),
+        _ => "Die Passwortliste wurde nicht ersetzt. Bitte bestätige die Aktion.".to_string(),
     };
 
     let config = current_config_for_page(&state);

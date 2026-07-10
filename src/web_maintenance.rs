@@ -42,8 +42,12 @@ pub(crate) fn reset_history_files(history_dir: &str) -> Result<(usize, PathBuf)>
             continue;
         }
 
-        fs::remove_file(&path)
-            .with_context(|| format!("Konnte History-Marker nicht löschen: {}", path.display()))?;
+        fs::remove_file(&path).with_context(|| {
+            format!(
+                "Verlaufsmarkierung konnte nicht gelöscht werden: {}",
+                path.display()
+            )
+        })?;
 
         removed += 1;
     }
@@ -97,7 +101,10 @@ fn backup_history_files(history_path: &Path) -> Result<PathBuf> {
             };
 
             fs::copy(&path, backup_path.join(file_name)).with_context(|| {
-                format!("Konnte History-Marker nicht sichern: {}", path.display())
+                format!(
+                    "Verlaufsmarkierung konnte nicht gesichert werden: {}",
+                    path.display()
+                )
             })?;
         }
     }

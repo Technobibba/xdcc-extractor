@@ -30,23 +30,29 @@ pub(crate) struct SettingsForm {
 
 pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<PathBuf> {
     if form.stable_after == 0 {
-        anyhow::bail!("stable_after muss größer als 0 sein");
+        anyhow::bail!("Die Wartezeit bis zur Verarbeitung muss größer als 0 sein");
     }
 
     if form.retry_base_delay == 0 {
-        anyhow::bail!("retry.base_delay muss größer als 0 sein");
+        anyhow::bail!("Die erste Wiederholungs-Wartezeit muss größer als 0 sein");
     }
 
     if form.retry_max_delay < form.retry_base_delay {
-        anyhow::bail!("retry.max_delay muss größer oder gleich retry.base_delay sein");
+        anyhow::bail!(
+            "Die maximale Wiederholungs-Wartezeit muss mindestens so groß sein wie die erste Wartezeit"
+        );
     }
 
     if form.gotify_notify_after_attempts == 0 {
-        anyhow::bail!("notify_after_attempts muss größer als 0 sein");
+        anyhow::bail!("Die Anzahl der Versuche vor einer Fehlermeldung muss größer als 0 sein");
     }
 
-    let mut content = fs::read_to_string(path)
-        .with_context(|| format!("Konnte Config nicht lesen: {}", path.display()))?;
+    let mut content = fs::read_to_string(path).with_context(|| {
+        format!(
+            "Konfigurationsdatei konnte nicht gelesen werden: {}",
+            path.display()
+        )
+    })?;
 
     content = set_toml_value(
         content,
@@ -166,8 +172,12 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
 
     let backup_path = backup_config_file(path)?;
 
-    fs::write(path, content)
-        .with_context(|| format!("Konnte Config nicht schreiben: {}", path.display()))?;
+    fs::write(path, content).with_context(|| {
+        format!(
+            "Konfigurationsdatei konnte nicht geschrieben werden: {}",
+            path.display()
+        )
+    })?;
 
     Ok(backup_path)
 }
