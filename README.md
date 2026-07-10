@@ -2,27 +2,30 @@
 
 XDCC Extractor ist ein Rust-basierter Docker-Worker zum automatischen Erkennen, Prüfen und Entpacken von XDCC-/Botarr-Downloads.
 
-Der Worker überwacht einen Download-Ordner, erkennt fertige Releases, verarbeitet Archive automatisch, verwaltet History/Fehlerstatus und bietet eine geschützte WebUI zur Kontrolle und Konfiguration.
+Der Worker überwacht einen Download-Ordner, erkennt fertige Releases, verarbeitet Archive automatisch, verwaltet Verlauf und Fehlerstatus und bietet eine geschützte WebUI für Kontrolle, Konfiguration, Wartung und Diagnose.
 
 ## Features
 
 - Docker-first Betrieb
 - Watcher für neue Downloads
-- Startup-Scan vorhandener Releases
-- Queue-Verarbeitung
+- Prüfung vorhandener Releases beim Start
+- Warteschlange mit Duplikatschutz
 - Archivprüfung vor dem Entpacken
 - Unterstützung für Passwortlisten
-- Retry-Logik bei Fehlern
-- History für erfolgreiche und fehlgeschlagene Releases
-- Cleanup nach erfolgreicher Verarbeitung
+- Wiederholungslogik bei Fehlern
+- Verlauf für erfolgreiche und fehlgeschlagene Releases
+- Bereinigung nach erfolgreicher Verarbeitung
 - Gotify-Benachrichtigungen
-- WebUI mit Basic Auth
-- Dashboard, Scan, Logs und Settings
-- Manuelle Verarbeitung einzelner Releases
-- Zurücksetzen fehlgeschlagener Releases
-- Editierbare sichere Einstellungen
-- Config-Backups bei Änderungen
-- Docker Healthcheck
+- Geschützte WebUI mit Basic Auth
+- Dashboard mit Release-Übersicht und manuellen Aktionen
+- Read-only Einstellungen und separater Bearbeiten-Bereich
+- History-/Verlaufs-Reset mit automatischer Sicherung
+- Passwortlisten-Verwaltung mit automatischen Sicherungen
+- Diagnose-Seite für Pfade, Verlauf, Gotify und Passwortliste
+- Übersicht vorhandener Config-, Verlaufs- und Passwortlisten-Sicherungen
+- Logs und geschützte JSON-APIs
+- Docker-Healthcheck
+- Automatischer WebUI-Smoke-Test
 - Publication-Check für öffentliche Releases
 
 ## Docker Quickstart
@@ -80,29 +83,37 @@ http://<docker-host>:8099
 
 ## WebUI
 
-Die WebUI ist per Basic Auth geschützt. Zugangsdaten werden über `.env` gesetzt.
+Die WebUI ist per Basic Auth geschützt. Die Zugangsdaten werden über `.env` gesetzt.
 
 Verfügbare Seiten:
 
 ~~~text
-/
- /settings
-/settings/edit
-/logs
-/health
+/                  Dashboard
+/settings          Aktuell geladene Einstellungen
+/settings/edit     Einstellungen und Wartungsfunktionen
+/logs              Laufende Worker-Logs
+/diagnostics       Read-only Diagnose und Sicherungsübersicht
+/health            Öffentlicher Docker-Healthcheck
 ~~~
 
 Funktionen:
 
-- Status anzeigen
-- Scan aktualisieren
+- Worker- und Systemstatus anzeigen
+- Releases neu prüfen
 - Releases manuell verarbeiten
-- Failed Releases zurücksetzen
+- Fehlerstatus einzelner Releases zurücksetzen
 - Letzte Fehler anzeigen
-- Logs anzeigen
-- Einstellungen bearbeiten
-- Gotify URL und Token neu setzen, ohne bestehende Werte anzuzeigen
-- Worker neu starten
+- Laufende Logs anzeigen
+- Sichere Einstellungen bearbeiten
+- Gotify-URL und Token neu setzen, ohne bestehende Werte anzuzeigen
+- Verlauf mit vorheriger Sicherung zurücksetzen
+- Einzelne Passwörter ergänzen
+- Passwortliste vollständig ersetzen
+- Config-, Verlaufs- und Passwortlisten-Sicherungen anzeigen
+- Erreichbarkeit wichtiger Speicherorte prüfen
+- Worker direkt über die WebUI neu starten
+
+Die Diagnose-Seite zeigt keine Passwortinhalte, Gotify-Tokens oder anderen vertraulichen Inhalte.
 
 ## APIs
 
@@ -127,12 +138,14 @@ Alle anderen WebUI-/API-Routen sind geschützt.
 Im Standard-Dockerbetrieb:
 
 ~~~text
-/downloads              Download-Ordner im Container
-/downloads/_extracted   Zielordner für entpackte Dateien
-/state/history          History
-/state/config-backups   Config-Backups
-/config/passwords.txt   Optionale Passwortliste
-/app/config.toml        Gemountete Runtime-Config
+/downloads                    Download-Ordner im Container
+/downloads/_extracted         Zielordner für entpackte Dateien
+/state/history                Verlauf
+/state/config-backups         Config-Sicherungen
+/state/history-backups        Verlaufs-Sicherungen
+/state/password-backups       Passwortlisten-Sicherungen
+/config/passwords.txt         Optionale Passwortliste
+/app/config.toml              Gemountete Runtime-Config
 ~~~
 
 ## Sicherheit
@@ -191,6 +204,28 @@ Healthcheck prüfen:
 docker inspect --format='{{.State.Health.Status}}' xdcc-extractor
 ~~~
 
+WebUI inklusive Seiten, APIs und Assets prüfen:
+
+~~~bash
+./scripts/webui-smoke-test.sh
+~~~
+
+## WebUI-Modulstruktur
+
+Die WebUI ist in klar getrennte Module aufgeteilt:
+
+~~~text
+src/web.rs               Router, Auth und Formular-Handler
+src/web_api.rs           JSON-API-Endpunkte
+src/web_pages.rs         HTML-Seiten und sichtbare Inhalte
+src/web_assets.rs        JavaScript
+src/web_styles.rs        Gemeinsame und seitenspezifische Styles
+src/web_settings.rs      Config-Speicherung und Config-Sicherungen
+src/web_maintenance.rs   Verlaufs- und Passwortlisten-Verwaltung
+src/web_history.rs       Verlauf und Fehlerdaten
+src/web_backups.rs       Read-only Sicherungsübersicht
+~~~
+
 ## CLI
 
 ~~~bash
@@ -210,6 +245,7 @@ Vor jedem Release:
 cargo fmt
 cargo test
 cargo build
+./scripts/webui-smoke-test.sh
 ./scripts/publication-check.sh
 ~~~
 

@@ -3,6 +3,30 @@
 
 
 
+## v0.9.0 - 2026-07-10
+
+### Added
+- Read-only Diagnose-Seite
+- Übersicht für Config-, Verlaufs- und Passwortlisten-Sicherungen
+- WebUI-Smoke-Test für Seiten, APIs, JavaScript und Stylesheets
+- Eigenes Modul für die Sicherungsübersicht
+
+### Changed
+- WebUI vollständig in kleinere Module aufgeteilt
+- HTML, JavaScript und CSS aus `web.rs` ausgelagert
+- Gemeinsame CSS-Regeln zusammengeführt
+- Dashboard und Einstellungen sprachlich vereinheitlicht
+- Sichtbare Release-Zustände auf Deutsch dargestellt
+- Eingabefelder kompakter und responsiver gestaltet
+- Navigation und Abstände überarbeitet
+- README und Roadmap an den aktuellen Funktionsumfang angepasst
+
+### Security
+- Diagnose zeigt keine Passwortinhalte oder Gotify-Secrets
+- Sicherungsübersicht zeigt keine Backup-Inhalte
+- Geschützte WebUI- und API-Routen bleiben hinter Basic Auth
+- `/health` bleibt ausschließlich für den Docker-Healthcheck öffentlich
+
 ## v0.8.0 - 2026-07-08
 
 ### Added

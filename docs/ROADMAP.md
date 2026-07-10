@@ -1,156 +1,113 @@
 # XDCC Extractor Roadmap
 
-## Erledigt
+Stand: 2026-07-10
 
-### Projektfundament
+## Abgeschlossen
 
-- Rust-Projekt erstellt
-- Git-Repository initialisiert
-- Cargo Build funktioniert
-- Dockerfile erstellt
-- Docker Compose eingerichtet
-- Config-Dateien vorbereitet
-- Lokale `config.toml` aus Git ausgeschlossen
+### Worker-Kern
 
----
+- Watcher für neue Downloads
+- Prüfung vorhandener Releases beim Start
+- Warteschlange mit Duplikatschutz
+- Archivprüfung und Entpacken
+- Mehrteilige und passwortgeschützte Archive
+- Passwortlisten
+- Wiederholungslogik
+- Verlauf für erfolgreiche und fehlgeschlagene Releases
+- Sichere Bereinigung nach erfolgreicher Verarbeitung
 
-### Watcher & Release-Erkennung
+### CLI
 
-- Watch-Ordner überwachen
-- Dateiänderungen erkennen
-- Release-Kandidaten sammeln
-- Warten bis ein Release stabil ist
-- `stable_after` konfigurierbar
-- Unterordner-Releases erkennen
-- Flat-Downloads im Root erkennen
-- Root-Archive optional erlauben
-- Startup-Scan optional aktivieren/deaktivieren
+- `--status`
+- `--scan`
+- `--dry-run-report`
+- `--dry-run-check`
+- `--clear-failed <PATH>`
+- `--process <PATH>`
+- `--help`
+- `--version`
 
----
+### Docker und Betrieb
 
-### Queue & Verarbeitung
+- Dockerfile und Compose
+- Persistente State-Daten
+- HTTP-Healthcheck
+- Runtime-Config außerhalb von Git
+- Worker-Neustart über die WebUI
 
-- JobQueue erstellt
-- Releases werden nacheinander verarbeitet
-- Keine parallelen Entpackungen
-- Fehlgeschlagene Jobs werden erneut versucht
-- Retry-Backoff eingebaut
+### WebUI
 
----
+- Geschützte WebUI mit Basic Auth
+- Dashboard
+- Release-Übersicht
+- Manuelle Verarbeitung
+- Fehlerstatus zurücksetzen
+- Letzte Fehler
+- Logs
+- Read-only Einstellungen
+- Bearbeiten-Bereich
+- Gotify-Konfiguration
+- Verlaufs-Reset mit Sicherung
+- Passwortlisten-Verwaltung mit Sicherung
+- Diagnose-Seite
+- Backup-Übersicht
+- Einheitliche Navigation
+- Deutsche und verständlichere Beschriftungen
+- Responsive Eingabefelder
 
-### Archiv-Erkennung
+### Qualität und Veröffentlichung
 
-Unterstützt:
+- Rust-Tests
+- GitHub CI
+- WebUI-Smoke-Test
+- Asset-Prüfungen
+- Publication-Check
+- Öffentliche Release-Checkliste
+- Secret- und Runtime-Dateien aus Git ausgeschlossen
 
-- `.rar`
-- `.zip`
-- `.7z`
-- `.001`
-- `.tar`
-- `.tar.gz`
-- `.tgz`
-- `.tar.xz`
-- `.txz`
-- `.tar.bz2`
-- `.tbz2`
+### Refactor
 
----
+- HTML nach `web_pages.rs`
+- JavaScript nach `web_assets.rs`
+- CSS nach `web_styles.rs`
+- gemeinsame CSS-Regeln dedupliziert
+- API nach `web_api.rs`
+- Config-Speicherung nach `web_settings.rs`
+- Wartungslogik nach `web_maintenance.rs`
+- Verlaufslogik nach `web_history.rs`
+- Sicherungsübersicht nach `web_backups.rs`
 
-### Verify / Extract / Validate
+## Aktuell
 
-- Archive prüfen
-- Archive entpacken
-- Zielordner erstellen
-- Vorhandenen Zielordner ersetzen
-- Entpackung validieren
-- Leere Entpackung erkennen
-- Fehler sauber loggen
+### Release v0.9.0
 
----
+- Dokumentation aktualisieren
+- vollständigen Qualitätscheck ausführen
+- Version auf `0.9.0` erhöhen
+- Release committen und taggen
 
-### Cleanup & Sicherheit
+## Danach möglich
 
-- Cleanup-Kandidaten erkennen
-- Nur Archivdateien als Cleanup-Kandidaten verwenden
-- Sicherheitsprüfung für Cleanup-Pfade
-- Dry-Run-Modus eingebaut
-- Echte Löschung technisch möglich, aber per `dry_run=true` abgesichert
+### Bedienung
 
----
+- Erfolgsmeldungen ohne vollständigen Seiten-Reload
+- einheitliche Toast-Meldungen
+- Ladeindikatoren für Aktionen
+- automatische Aktualisierung des Dashboards
 
-### History
+### Diagnose
 
-- Erfolgreiche Releases als `.done` speichern
-- Fehlgeschlagene Releases als `.failed` speichern
-- Anzahl Fehlversuche speichern
-- Fehlertext speichern
-- Erfolgreiche Verarbeitung entfernt alten Fehlerstatus
-- Bereits verarbeitete Releases werden übersprungen
+- Worker-Laufzeit
+- Speicherplatzinformationen
+- detailliertere Ordnerprüfungen
+- optionale Gotify-Verbindungsprüfung
 
----
+### Erweiterungen
 
-### Docker
-
-- Multi-Stage Docker Build
-- Runtime mit `7z`, `unrar`, `tar`
-- Config als Volume
-- State persistent als Volume
-- Downloadordner als Volume
-
----
-
-## Als Nächstes
-
-### Dokumentation
-
-- README pflegen
-- Konfigurationsoptionen dokumentieren
-- Troubleshooting ergänzen
-- Beispiel-Setups ergänzen
-
----
-
-### Output verbessern
-
-Aktuell:
-
-```text
-/downloads/_extracted/Release.Name/
-
----
-
-## Passwortarchive
-
-### Erledigt
-
-- Passwortdatei in der Config
-- Passwortliste wird geladen
-- Kommentare und leere Zeilen werden ignoriert
-- Passwortgeschützte Archive werden erkannt
-- Passwörter werden nacheinander getestet
-- Erfolgreiches Passwort wird für die Entpackung verwendet
-- Fehler werden sauber klassifiziert
-
-### Geplant
-
-- Fehlerstatus `password_required`
-- Optional getrennte Meldung für Passwortfehler
-- Passwortliste über WebUI verwalten
-
----
-
-## Dry-Run / Cleanup
-
-### Erledigt
-
-- Cleanup nur nach erfolgreicher Entpackung
-- Cleanup nur nach erfolgreicher Validierung
-- Dry-Run-Modus
-- Cleanup-Tests mit temporären Dateien
-- Dry-Run-Report
-- Dry-Run-Safety-Check
-- kontrollierter `dry_run=false` Test erfolgreich
-
-### Offen
-
-- Produktiventscheidung, wann `dry_run=false` dauerhaft aktiviert wird
+- Live-Logs über Server-Sent Events
+- Filter und Suche für Releases und Fehler
+- sichtbare Release-Historie
+- Wiederherstellung ausgewählter Sicherungen
+- mehrere Watch-Ordner
+- automatisierte GitHub Releases
+- GitHub Container Registry
