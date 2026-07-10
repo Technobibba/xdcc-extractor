@@ -457,7 +457,7 @@ pub fn settings_page_html(config: &Config) -> String {
   </div>
 
   <footer>
-    Diese Seite ist read-only. Config-Schreibfunktionen bauen wir später bewusst separat.
+    Diese Seite zeigt die aktuell geladene Konfiguration. Änderungen können im Bereich Bearbeiten vorgenommen werden und werden nach einem Neustart des Workers aktiv.
   </footer>
 </main>
 </body>
