@@ -4,9 +4,19 @@
 
 [watch]
 
-# Ordner, den der Worker überwacht.
+# Hauptordner, den der Worker überwacht.
 # Im Docker-Container ist das normalerweise /downloads.
 directory="/downloads"
+
+# Optionale zusätzliche überwachte Ordner.
+# Doppelte Einträge werden automatisch entfernt.
+directories=[]
+
+# Beispiel:
+# directories=[
+#     "/downloads2",
+#     "/weitere-downloads"
+# ]
 
 # Sekunden ohne Änderung, bevor ein Release als vollständig gilt.
 stable_after=30

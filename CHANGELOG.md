@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Mehrere gleichzeitig überwachte Ordner
+- Abwärtskompatible Konfiguration über `watch.directory` und `watch.directories`
+- Verwaltung der Watch-Ordner direkt über die WebUI
+- Mehrordner-Unterstützung für Worker, Startup-Scan, manuellen Scan und Dry-Run-Prüfungen
+- Mehrordner-Ausgabe in Dashboard, Einstellungen, Diagnose und JSON-APIs
+- Speicherplatzanzeige mit Gesamt-, Belegt-, Frei- und Auslastungswerten
+- Eigene Diagnosekarte für jeden überwachten Ordner
+- Automatische Dashboard-Aktualisierung alle 30 Sekunden
+- Pause der automatischen Aktualisierung bei inaktivem Browser-Tab
+- Toast-Meldungen und sichtbare Ladezustände für WebUI-Aktionen
+- Erweiterte Smoke-Tests für UX-, Auto-Refresh-, Speicherplatz- und Mehrordner-Funktionen
+
+### Changed
+
+- Diagnosebereich für Speicherorte übersichtlicher gestaltet
+- Scan-Logik zentralisiert
+- Watch-Ordner werden normalisiert und doppelte Einträge entfernt
+- Alte Ein-Ordner-Konfigurationen bleiben ohne Migration nutzbar
+- Neue API-Listenfelder ergänzt; bestehende Einzelordner-Felder bleiben erhalten
+
+### Security
+
+- Watch-Ordner können nur als absolute Container-Pfade gespeichert werden
+- Config-Backups werden weiterhin vor Änderungen angelegt
+- Gotify-Secrets und Passwortlisten-Inhalte bleiben verborgen
+
+
 
 
 

@@ -2,12 +2,12 @@
 
 XDCC Extractor ist ein Rust-basierter Docker-Worker zum automatischen Erkennen, Prüfen und Entpacken von XDCC-/Botarr-Downloads.
 
-Der Worker überwacht einen Download-Ordner, erkennt fertige Releases, verarbeitet Archive automatisch, verwaltet Verlauf und Fehlerstatus und bietet eine geschützte WebUI für Kontrolle, Konfiguration, Wartung und Diagnose.
+Der Worker überwacht einen oder mehrere Download-Ordner, erkennt fertige Releases, verarbeitet Archive automatisch, verwaltet Verlauf und Fehlerstatus und bietet eine geschützte WebUI für Kontrolle, Konfiguration, Wartung und Diagnose.
 
 ## Features
 
 - Docker-first Betrieb
-- Watcher für neue Downloads
+- Watcher für neue Downloads in einem oder mehreren Ordnern
 - Prüfung vorhandener Releases beim Start
 - Warteschlange mit Duplikatschutz
 - Archivprüfung vor dem Entpacken
@@ -19,13 +19,16 @@ Der Worker überwacht einen Download-Ordner, erkennt fertige Releases, verarbeit
 - Geschützte WebUI mit Basic Auth
 - Dashboard mit Release-Übersicht und manuellen Aktionen
 - Read-only Einstellungen und separater Bearbeiten-Bereich
+- Überwachte Ordner direkt über die WebUI hinzufügen, bearbeiten und entfernen
 - History-/Verlaufs-Reset mit automatischer Sicherung
 - Passwortlisten-Verwaltung mit automatischen Sicherungen
-- Diagnose-Seite für Pfade, Verlauf, Gotify und Passwortliste
+- Diagnose-Seite für Pfade, Speicherplatz, Verlauf, Gotify und Passwortliste
 - Übersicht vorhandener Config-, Verlaufs- und Passwortlisten-Sicherungen
 - Logs und geschützte JSON-APIs
 - Docker-Healthcheck
-- Automatischer WebUI-Smoke-Test
+- Automatischer WebUI-Smoke-Test für Seiten, APIs, Assets und UX-Funktionen
+- Automatische Dashboard-Aktualisierung mit Pause bei inaktivem Browser-Tab
+- Toast-Meldungen und sichtbare Ladezustände für WebUI-Aktionen
 - Publication-Check für öffentliche Releases
 
 ## Docker Quickstart
@@ -56,6 +59,7 @@ XDCC_WEB_AUTH_PASSWORD=change-me
 ~~~toml
 [watch]
 directory="/downloads"
+directories=[]
 
 [output]
 directory="/downloads/_extracted"
@@ -66,6 +70,36 @@ bind="0.0.0.0:8099"
 ~~~
 
 Die produktive `config.docker.toml` kann private Pfade, Gotify URL und Token enthalten und darf nicht committed werden.
+
+### Mehrere überwachte Ordner
+
+Zusätzliche physische Ordner oder Datenträger
+müssen zuerst in `compose.yaml` in den
+Container eingebunden werden:
+
+~~~yaml
+services:
+  xdcc-extractor:
+    volumes:
+      - /media/HDD3/XDCC:/downloads
+      - /media/HDD4/XDCC:/downloads2
+~~~
+
+Danach können die Container-Pfade in der WebUI
+unter `Einstellungen → Bearbeiten → Überwachung`
+eingetragen werden:
+
+~~~text
+/downloads
+/downloads2
+~~~
+
+Der erste Eintrag wird als `watch.directory`
+gespeichert. Weitere Einträge werden unter
+`watch.directories` abgelegt.
+
+Bestehende Ein-Ordner-Konfigurationen bleiben
+vollständig kompatibel.
 
 ### 3. Docker starten
 
@@ -105,13 +139,16 @@ Funktionen:
 - Letzte Fehler anzeigen
 - Laufende Logs anzeigen
 - Sichere Einstellungen bearbeiten
+- Einen oder mehrere überwachte Ordner verwalten
 - Gotify-URL und Token neu setzen, ohne bestehende Werte anzuzeigen
 - Verlauf mit vorheriger Sicherung zurücksetzen
 - Einzelne Passwörter ergänzen
 - Passwortliste vollständig ersetzen
 - Config-, Verlaufs- und Passwortlisten-Sicherungen anzeigen
 - Erreichbarkeit wichtiger Speicherorte prüfen
+- Gesamten, belegten und freien Speicherplatz je Dateisystem anzeigen
 - Worker direkt über die WebUI neu starten
+- Dashboard automatisch alle 30 Sekunden aktualisieren
 
 Die Diagnose-Seite zeigt keine Passwortinhalte, Gotify-Tokens oder anderen vertraulichen Inhalte.
 
@@ -133,12 +170,24 @@ Die Diagnose-Seite zeigt keine Passwortinhalte, Gotify-Tokens oder anderen vertr
 
 Alle anderen WebUI-/API-Routen sind geschützt.
 
+Die Config- und Status-APIs liefern für neue
+Integrationen Listenfelder mit allen Watch-Ordnern:
+
+~~~text
+watch.directories
+watch_directories
+~~~
+
+Die bisherigen Einzelordner-Felder bleiben aus
+Kompatibilitätsgründen erhalten.
+
 ## Wichtige lokale Pfade
 
 Im Standard-Dockerbetrieb:
 
 ~~~text
-/downloads                    Download-Ordner im Container
+/downloads                    Haupt-Download-Ordner im Container
+/downloads2                   Optionaler zusätzlicher Watch-Ordner
 /downloads/_extracted         Zielordner für entpackte Dateien
 /state/history                Verlauf
 /state/config-backups         Config-Sicherungen
@@ -224,6 +273,7 @@ src/web_settings.rs      Config-Speicherung und Config-Sicherungen
 src/web_maintenance.rs   Verlaufs- und Passwortlisten-Verwaltung
 src/web_history.rs       Verlauf und Fehlerdaten
 src/web_backups.rs       Read-only Sicherungsübersicht
+src/web_disk.rs          Speicherplatzabfrage für die Diagnose
 ~~~
 
 ## CLI

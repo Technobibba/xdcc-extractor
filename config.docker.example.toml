@@ -3,7 +3,14 @@
 ##############################################
 
 [watch]
+
+# Hauptordner im Container.
 directory="/downloads"
+
+# Zusätzliche Ordner müssen ebenfalls als
+# Docker-Volume eingebunden werden.
+directories=[]
+
 stable_after=30
 allow_root_archives=true
 
