@@ -234,6 +234,25 @@ textarea {
   margin-top: 16px;
 }
 
+
+/* Verhindert, dass Eingabefelder durch Innenabstände über Karten hinausragen. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Grid-Inhalte dürfen innerhalb ihrer Spalte korrekt schrumpfen. */
+.grid > * {
+  min-width: 0;
+}
+
+/* Zahlenfelder kompakt darstellen. */
+input[type="number"] {
+  width: 180px;
+  max-width: 100%;
+}
+
 @media (max-width: 720px) {
   .grid {
     grid-template-columns: 1fr;
