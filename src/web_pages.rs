@@ -453,7 +453,17 @@ pub fn settings_page_html(config: &Config) -> String {
   <div class="grid">
     <section class="card">
       <h2>Überwachung</h2>
-      <div class="row"><div class="key">Überwachter Ordner</div><div class="value"><code>{watch_dir}</code></div></div>
+      <div class="row">
+        <div class="key">
+          Überwachte Ordner
+        </div>
+
+        <div class="value">
+          <div class="watch-directory-list">
+            {watch_directory_rows}
+          </div>
+        </div>
+      </div>
       <div class="row"><div class="key">Wartezeit bis Verarbeitung</div><div class="value">{stable_after}s</div></div>
       <div class="row"><div class="key">Root-Archive erlauben</div><div class="value">{allow_root_archives}</div></div>
     </section>
@@ -513,7 +523,7 @@ pub fn settings_page_html(config: &Config) -> String {
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),
-        watch_dir = escape_html(&config.watch.directory),
+        watch_directory_rows = watch_directory_list_html(config),
         stable_after = config.watch.stable_after,
         allow_root_archives = allow_root_archives,
         dry_run = dry_run,
@@ -624,7 +634,11 @@ pub fn dashboard_page_html(config: &Config) -> String {
 
     <section class="card">
       <h2>Überwachter Ordner</h2>
-      <div class="small"><code>{watch_dir}</code></div>
+      <div class="small">
+        <div class="watch-directory-list">
+          {watch_directory_rows}
+        </div>
+      </div>
     </section>
 
     <section class="card">
@@ -681,7 +695,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
         done = history.0,
         failed = history.1,
         history_dir = escape_html(&config.history.directory),
-        watch_dir = escape_html(&config.watch.directory),
+        watch_directory_rows = watch_directory_list_html(config),
         output_dir = escape_html(&config.output.directory),
         allow_root_archives = config.watch.allow_root_archives,
         scan_html = scan_html,
@@ -1058,12 +1072,28 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         }
     };
 
-    let disk_cards_html = [
-        disk_card_html("Überwachter Ordner", &config.watch.directory),
-        disk_card_html("Ausgabeordner", &config.output.directory),
-        disk_card_html("Verlaufs-/State-Ordner", &config.history.directory),
-    ]
-    .join("\n");
+    let watch_directories = config.watch.resolved_directories();
+
+    let mut disk_cards = Vec::new();
+
+    for (index, directory) in watch_directories.iter().enumerate() {
+        let title = if watch_directories.len() == 1 {
+            "Überwachter Ordner".to_string()
+        } else {
+            format!("Überwachter Ordner {}", index + 1)
+        };
+
+        disk_cards.push(disk_card_html(&title, directory));
+    }
+
+    disk_cards.push(disk_card_html("Ausgabeordner", &config.output.directory));
+
+    disk_cards.push(disk_card_html(
+        "Verlaufs-/State-Ordner",
+        &config.history.directory,
+    ));
+
+    let disk_cards_html = disk_cards.join("\n");
 
     format!(
         r#"<!doctype html>
@@ -1233,4 +1263,26 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         disk_cards_html = disk_cards_html,
         backup_cards_html = backup_cards_html,
     )
+}
+
+fn watch_directory_list_html(config: &Config) -> String {
+    config
+        .watch
+        .resolved_directories()
+        .into_iter()
+        .enumerate()
+        .map(|(index, directory)| {
+            format!(
+                r#"<div class="watch-directory-item">
+          <span class="watch-directory-index">
+            {}
+          </span>
+          <code>{}</code>
+        </div>"#,
+                index + 1,
+                escape_html(directory),
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }

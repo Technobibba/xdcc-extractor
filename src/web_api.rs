@@ -22,7 +22,17 @@ pub(crate) async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde
         "ok": true,
         "version": env!("CARGO_PKG_VERSION"),
         "watch": {
-            "directory": state.config.watch.directory,
+            "directory": state
+                .config
+                .watch
+                .resolved_directories()
+                .first()
+                .copied()
+                .unwrap_or_default(),
+            "directories": state
+                .config
+                .watch
+                .resolved_directories(),
             "stable_after": state.config.watch.stable_after,
             "allow_root_archives": state.config.watch.allow_root_archives,
         },
@@ -74,7 +84,17 @@ pub(crate) async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde
 
     Json(json!({
         "version": env!("CARGO_PKG_VERSION"),
-        "watch_directory": state.config.watch.directory,
+        "watch_directory": state
+            .config
+            .watch
+            .resolved_directories()
+            .first()
+            .copied()
+            .unwrap_or_default(),
+        "watch_directories": state
+            .config
+            .watch
+            .resolved_directories(),
         "output_directory": state.config.output.directory,
         "history_directory": state.config.history.directory,
         "dry_run": state.config.extract.dry_run,

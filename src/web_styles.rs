@@ -2,7 +2,41 @@ use axum::{http::header, response::IntoResponse};
 
 const COMMON_CSS: &str = r###"code {
   color: #cfd7e6;
-}"###;
+}
+
+.watch-directory-list {
+  display: grid;
+  gap: 8px;
+}
+
+.watch-directory-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.watch-directory-index {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(154, 164, 178, .12);
+  color: #9aa4b2;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.watch-directory-item code {
+  min-width: 0;
+  padding-top: 2px;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+"###;
 
 pub async fn common_css() -> impl IntoResponse {
     (

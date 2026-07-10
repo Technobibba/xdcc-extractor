@@ -235,4 +235,23 @@ check_contains \
     ".disk-meter {" \
     "Speicherplatz Styles"
 
+check_page \
+    "/settings" \
+    "Überwachte Ordner"
+
+check_contains \
+    "/api/config" \
+    '"directories":' \
+    "API Watch-Ordnerliste"
+
+check_contains \
+    "/api/status" \
+    '"watch_directories":' \
+    "Status Watch-Ordnerliste"
+
+check_contains \
+    "/assets/common.css" \
+    ".watch-directory-list {" \
+    "Watch-Ordner Styles"
+
 echo "Alle WebUI-Tests erfolgreich."
