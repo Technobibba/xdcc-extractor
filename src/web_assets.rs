@@ -166,7 +166,7 @@ function renderScan(data) {
 
   let html = `
     <div class="scan-summary">
-      <span class="badge ok">new: ${counts.new}</span>
+      <span class="badge ok">neu: ${counts.new}</span>
       <span class="badge muted">erledigt: ${counts.done}</span>
       <span class="badge bad">fehlgeschlagen: ${counts.failed}</span>
       <span class="badge muted">gesamt: ${candidates.length}</span>

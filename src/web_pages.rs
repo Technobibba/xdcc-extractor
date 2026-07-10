@@ -650,7 +650,7 @@ fn scan_summary_html(config: &Config) -> String {
 
     let mut html = format!(
         r#"<div class="scan-summary">
-<span class="badge ok">new: {}</span>
+<span class="badge ok">neu: {}</span>
 <span class="badge muted">erledigt: {}</span>
 <span class="badge bad">fehlgeschlagen: {}</span>
 <span class="badge muted">gesamt: {}</span>
