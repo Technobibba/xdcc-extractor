@@ -52,6 +52,20 @@ patterns = [
     ("possible bearer token", re.compile(r"Bearer\s+[A-Za-z0-9_.:/+=-]{8,}", re.IGNORECASE)),
 ]
 
+# Der öffentliche GitHub-Account und der zugehörige
+# GHCR-Namensraum dürfen in Repository-Links,
+# Docker-Images und Dokumentation vorkommen.
+public_owner_references = [
+    re.compile(
+        r"(?:https?://)?github\.com/technobibba(?=/|$)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"ghcr\.io/technobibba(?=/|$)",
+        re.IGNORECASE,
+    ),
+]
+
 hits = []
 
 for file in tracked:
@@ -73,7 +87,16 @@ for file in tracked:
             if file in allow_files and label in {"non-example auth password", "possible token assignment"}:
                 continue
 
-            if pattern.search(line):
+            candidate = line
+
+            if label == "private host name":
+                for public_reference in public_owner_references:
+                    candidate = public_reference.sub(
+                        "",
+                        candidate,
+                    )
+
+            if pattern.search(candidate):
                 redacted = re.sub(r"https?://\S+", "<URL_REDACTED>", line)
                 redacted = re.sub(r'(?i)(token\s*=\s*)".*"', r'\1"<REDACTED>"', redacted)
                 redacted = re.sub(r'(?i)(password\s*=\s*)".*"', r'\1"<REDACTED>"', redacted)
