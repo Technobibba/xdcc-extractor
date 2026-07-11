@@ -10,6 +10,10 @@ RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 
+LABEL org.opencontainers.image.source="https://github.com/Technobibba/xdcc-extractor"
+LABEL org.opencontainers.image.title="XDCC Extractor"
+LABEL org.opencontainers.image.description="Automatic XDCC archive extraction worker"
+
 # xdcc-healthcheck-curl
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
