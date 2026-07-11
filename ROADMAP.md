@@ -1,6 +1,6 @@
 # Roadmap
 
-## v1.0.0 – In Vorbereitung
+## v1.0.0 – Fertiggestellt
 
 ### Abgeschlossen
 
@@ -22,12 +22,6 @@
 - Automatische GitHub-Releases bei Versions-Tags
 - Installationsbeispiel für den Betrieb mit veröffentlichten Images
 
-### Noch offen vor v1.0.0
-
-- Fertige Docker-Images über GitHub Container Registry
-- Vollständiger Release- und Migrationstest
-- Version auf `1.0.0` setzen
-- Release-Tag `v1.0.0` erstellen
 
 ## Nach v1.0.0
 
