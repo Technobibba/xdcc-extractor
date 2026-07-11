@@ -19,12 +19,12 @@
 - Toast-Meldungen und Ladezustände
 - Erweiterter WebUI-Smoke-Test
 - Publication-Check und GitHub CI
+- Automatische GitHub-Releases bei Versions-Tags
+- Installationsbeispiel für den Betrieb mit veröffentlichten Images
 
 ### Noch offen vor v1.0.0
 
-- Automatische GitHub-Releases bei einem neuen Versions-Tag
 - Fertige Docker-Images über GitHub Container Registry
-- README und Installationsanleitung auf fertige Images erweitern
 - Vollständiger Release- und Migrationstest
 - Version auf `1.0.0` setzen
 - Release-Tag `v1.0.0` erstellen

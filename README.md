@@ -115,6 +115,63 @@ WebUI öffnen:
 http://<docker-host>:8099
 ~~~
 
+## Installation mit veröffentlichtem Container-Image
+
+Ab `v1.0.0` wird zusätzlich zu den Quelldateien ein
+fertiges Docker-Image über die GitHub Container Registry
+bereitgestellt.
+
+Lokale Dateien vorbereiten:
+
+~~~bash
+cp compose.ghcr.example.yaml compose.ghcr.yaml
+cp config.docker.example.toml config.docker.toml
+cp .env.example .env
+mkdir -p state config
+~~~
+
+Danach in `compose.ghcr.yaml` mindestens den lokalen
+Download-Pfad anpassen:
+
+~~~yaml
+volumes:
+  - /media/HDD3/XDCC:/downloads
+~~~
+
+Container laden und starten:
+
+~~~bash
+docker compose   -f compose.ghcr.yaml   pull
+
+docker compose   -f compose.ghcr.yaml   up -d
+~~~
+
+Status prüfen:
+
+~~~bash
+docker compose   -f compose.ghcr.yaml   ps
+
+docker inspect   --format='{{.State.Health.Status}}'   xdcc-extractor
+~~~
+
+Das fertige Image benötigt keinen lokalen Rust-Compiler
+und keinen lokalen Docker-Build.
+
+Verfügbare stabile Tags werden nach einem Release
+automatisch erzeugt:
+
+~~~text
+ghcr.io/technobibba/xdcc-extractor:latest
+ghcr.io/technobibba/xdcc-extractor:1
+ghcr.io/technobibba/xdcc-extractor:1.0
+ghcr.io/technobibba/xdcc-extractor:1.0.0
+ghcr.io/technobibba/xdcc-extractor:v1.0.0
+~~~
+
+Für reproduzierbare Installationen sollte ein vollständiger
+Versions-Tag wie `1.0.0` verwendet werden. `latest` folgt
+dem jeweils zuletzt veröffentlichten stabilen Release.
+
 ## WebUI
 
 Die WebUI ist per Basic Auth geschützt. Die Zugangsdaten werden über `.env` gesetzt.
@@ -290,17 +347,39 @@ xdcc-extractor --process <PATH>
 Vor jedem Release:
 
 ~~~bash
-cargo fmt
+cargo fmt --check
 cargo test
 cargo build
 ./scripts/webui-smoke-test.sh
 ./scripts/publication-check.sh
 ~~~
 
-Version setzen, committen und taggen:
+Die Version muss vor dem Tag in `Cargo.toml`,
+`Cargo.lock` und `CHANGELOG.md` eingetragen sein.
+
+Ein Versions-Tag startet automatisch den
+Release-Workflow:
 
 ~~~bash
-git tag -a vX.Y.Z -m "XDCC Extractor vX.Y.Z"
+git tag   -a vX.Y.Z   -m "XDCC Extractor vX.Y.Z"
+
+git push   origin   vX.Y.Z
+~~~
+
+Der Workflow:
+
+1. vergleicht Tag und Cargo-Version,
+2. führt Formatprüfung, Tests und Release-Build aus,
+3. führt den Publication-Check aus,
+4. baut und veröffentlicht das Docker-Image bei GHCR,
+5. erzeugt die Versions-Tags und `latest`,
+6. erstellt das GitHub-Release aus dem passenden
+   Changelog-Abschnitt.
+
+Die vollständige Checkliste liegt unter:
+
+~~~text
+docs/RELEASE_CHECKLIST.md
 ~~~
 
 ## Dokumentation
@@ -310,6 +389,7 @@ Weitere Dokumente:
 ~~~text
 docs/DOCKER.md
 docs/RELEASE_CHECKLIST.md
+compose.ghcr.example.yaml
 ~~~
 
 ## Lizenz

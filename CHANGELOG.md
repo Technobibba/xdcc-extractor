@@ -4,6 +4,12 @@
 
 ### Added
 
+- Automatische GitHub-Releases bei Versions-Tags
+- Automatische Veröffentlichung fertiger Docker-Images über GHCR
+- Automatische Container-Tags für vollständige Version, Minor-Version, Major-Version und `latest`
+- Eigenes Compose-Beispiel für den Betrieb mit dem veröffentlichten GHCR-Image
+- Automatische Release-Notizen aus dem passenden Changelog-Abschnitt
+
 - Mehrere gleichzeitig überwachte Ordner
 - Abwärtskompatible Konfiguration über `watch.directory` und `watch.directories`
 - Verwaltung der Watch-Ordner direkt über die WebUI

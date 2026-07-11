@@ -16,3 +16,6 @@ state/
 target/
 *.bak.*
 config.env
+
+# Lokale Compose-Datei für das veröffentlichte GHCR-Image
+compose.ghcr.yaml

@@ -1,0 +1,23 @@
+services:
+  xdcc-extractor:
+    image: ghcr.io/technobibba/xdcc-extractor:latest
+    container_name: xdcc-extractor
+    restart: unless-stopped
+
+    ports:
+      - "8099:8099"
+
+    environment:
+      TZ: Europe/Berlin
+
+    volumes:
+      # Hauptordner für XDCC-/Botarr-Downloads.
+      - /path/to/XDCC:/downloads
+
+      # Optionaler zusätzlicher Watch-Ordner.
+      # - /path/to/second/XDCC:/downloads2
+
+      # Lokale Konfiguration und persistente Daten.
+      - ./config.docker.toml:/app/config.toml:rw
+      - ./state:/state
+      - ./config:/config:rw
