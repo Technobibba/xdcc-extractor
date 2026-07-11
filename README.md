@@ -281,8 +281,6 @@ src/web_disk.rs          Speicherplatzabfrage für die Diagnose
 ~~~bash
 xdcc-extractor --status
 xdcc-extractor --scan
-xdcc-extractor --dry-run-report
-xdcc-extractor --dry-run-check
 xdcc-extractor --clear-failed <PATH>
 xdcc-extractor --process <PATH>
 ~~~

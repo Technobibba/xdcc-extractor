@@ -1,6 +1,4 @@
 mod config;
-mod dry_run_check;
-mod dry_run_report;
 mod extractor;
 mod history;
 mod log_buffer;
@@ -88,14 +86,6 @@ fn main() -> anyhow::Result<()> {
         return manual_process::run_from_args();
     }
 
-    if dry_run_report::is_dry_run_report_command() {
-        return dry_run_report::run_from_args();
-    }
-
-    if dry_run_check::is_dry_run_check_command() {
-        return dry_run_check::run_from_args();
-    }
-
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
     tracing_subscriber::registry()
@@ -117,7 +107,6 @@ fn main() -> anyhow::Result<()> {
     let output_directory = PathBuf::from(&config.output.directory);
 
     let delete_archives = config.extract.delete_archives;
-    let dry_run = config.extract.dry_run;
     let keep_failed = config.extract.keep_failed;
     let passwords = passwords::load_passwords(&config.extract.password_file)?;
 
@@ -145,7 +134,6 @@ fn main() -> anyhow::Result<()> {
         stable_after_seconds
     );
     info!("Archive nach Erfolg löschen: {}", delete_archives);
-    info!("Dry-Run aktiv: {}", dry_run);
     info!("Fehlerhafte Archive behalten: {}", keep_failed);
     info!("Passwortdatei: {}", config.extract.password_file);
     info!("Geladene Passwörter: {}", passwords.len());
@@ -210,7 +198,6 @@ fn main() -> anyhow::Result<()> {
             &notifications,
             &output_directory,
             delete_archives,
-            dry_run,
             keep_failed,
             &passwords,
         ) {
@@ -496,7 +483,6 @@ fn process_next_job(
     notifications: &notifications::Notifications,
     output_base: &Path,
     delete_archives: bool,
-    dry_run: bool,
     keep_failed: bool,
     passwords: &[String],
 ) -> JobResult {
@@ -512,14 +498,7 @@ fn process_next_job(
 
     info!("Starte Job: {}", job.display());
 
-    match extractor::process_release(
-        &job,
-        output_base,
-        delete_archives,
-        dry_run,
-        keep_failed,
-        passwords,
-    ) {
+    match extractor::process_release(&job, output_base, delete_archives, keep_failed, passwords) {
         Ok(()) => {
             info!("Job abgeschlossen: {}", job.display());
 

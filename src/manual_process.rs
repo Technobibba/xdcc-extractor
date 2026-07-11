@@ -91,7 +91,6 @@ pub fn run_process(config_path: &str, config: &Config, release: &Path) -> Result
     println!("Optionen:");
     println!("  output: {}", config.output.directory);
     println!("  delete_archives: {}", config.extract.delete_archives);
-    println!("  dry_run: {}", config.extract.dry_run);
     println!("  keep_failed: {}", config.extract.keep_failed);
     println!("  passwords: {}", passwords.len());
     println!();
@@ -100,7 +99,6 @@ pub fn run_process(config_path: &str, config: &Config, release: &Path) -> Result
         release,
         Path::new(&config.output.directory),
         config.extract.delete_archives,
-        config.extract.dry_run,
         config.extract.keep_failed,
         &passwords,
     );

@@ -28,9 +28,6 @@ allow_root_archives=false
 # Archive nach erfolgreichem Entpacken löschen.
 delete_archives=true
 
-# Sicherheitsmodus: Wenn true, wird nichts wirklich gelöscht
-dry_run=true
-
 # Fehlerhafte Archive behalten.
 keep_failed=true
 

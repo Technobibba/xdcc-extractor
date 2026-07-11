@@ -21,7 +21,6 @@ pub fn process_release(
     target: &Path,
     output_base: &Path,
     delete_archives: bool,
-    dry_run: bool,
     keep_failed: bool,
     passwords: &[String],
 ) -> Result<()> {
@@ -41,11 +40,10 @@ pub fn process_release(
     validate_extraction(&plan.output_dir)?;
     info!("Entpackung validiert: {}", plan.output_dir.display());
 
-    execute_cleanup(&plan, delete_archives, dry_run)?;
+    execute_cleanup(&plan, delete_archives)?;
 
     info!("Konfiguration output_base={}", output_base.display());
     info!("Konfiguration delete_archives={}", delete_archives);
-    info!("Konfiguration dry_run={}", dry_run);
     info!("Konfiguration keep_failed={}", keep_failed);
 
     Ok(())
@@ -533,7 +531,7 @@ fn validate_extraction(output_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool, dry_run: bool) -> Result<()> {
+fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool) -> Result<()> {
     if plan.cleanup_files.is_empty() {
         warn!("Cleanup: Keine Archivdateien gefunden.");
         return Ok(());
@@ -547,21 +545,6 @@ fn execute_cleanup(plan: &ExtractPlan, delete_archives: bool, dry_run: bool) -> 
         }
 
         warn!("Es wurde nichts gelöscht, weil delete_archives=false ist.");
-        return Ok(());
-    }
-
-    if dry_run {
-        warn!("Cleanup Dry-Run aktiv: Diese Archivdateien würden gelöscht werden:");
-
-        for file in &plan.cleanup_files {
-            if !is_safe_cleanup_file(&plan.release_root, file) {
-                bail!("Unsicherer Cleanup-Pfad blockiert: {}", file.display());
-            }
-
-            info!("Dry-Run Cleanup-Kandidat: {}", file.display());
-        }
-
-        warn!("Dry-Run aktiv: Es wurde nichts gelöscht.");
         return Ok(());
     }
 
@@ -1145,30 +1128,6 @@ mod cleanup_execution_tests {
     use tempfile::tempdir;
 
     #[test]
-    fn dry_run_cleanup_does_not_delete_files() {
-        let dir = tempdir().expect("tempdir");
-
-        let archive = dir.path().join("Movie.Release.part01.rar");
-        let part2 = dir.path().join("Movie.Release.part02.rar");
-        let output_dir = dir.path().join("_extracted").join("Movie.Release");
-
-        fs::write(&archive, "part1").expect("write part1");
-        fs::write(&part2, "part2").expect("write part2");
-
-        let plan = ExtractPlan {
-            release_root: dir.path().to_path_buf(),
-            archive: archive.clone(),
-            output_dir,
-            cleanup_files: vec![archive.clone(), part2.clone()],
-        };
-
-        execute_cleanup(&plan, true, true).expect("dry-run cleanup");
-
-        assert!(archive.exists());
-        assert!(part2.exists());
-    }
-
-    #[test]
     fn disabled_cleanup_does_not_delete_files() {
         let dir = tempdir().expect("tempdir");
 
@@ -1184,7 +1143,7 @@ mod cleanup_execution_tests {
             cleanup_files: vec![archive.clone()],
         };
 
-        execute_cleanup(&plan, false, false).expect("disabled cleanup");
+        execute_cleanup(&plan, false).expect("disabled cleanup");
 
         assert!(archive.exists());
     }
@@ -1207,7 +1166,7 @@ mod cleanup_execution_tests {
             cleanup_files: vec![archive.clone(), part2.clone()],
         };
 
-        execute_cleanup(&plan, true, false).expect("active cleanup");
+        execute_cleanup(&plan, true).expect("active cleanup");
 
         assert!(!archive.exists());
         assert!(!part2.exists());
@@ -1232,7 +1191,7 @@ mod cleanup_execution_tests {
             cleanup_files: vec![archive.clone(), outside_archive.clone()],
         };
 
-        let err = execute_cleanup(&plan, true, false).expect_err("should block unsafe cleanup");
+        let err = execute_cleanup(&plan, true).expect_err("should block unsafe cleanup");
 
         assert!(format!("{:?}", err).contains("Unsicherer Cleanup-Pfad"));
         assert!(outside_archive.exists());

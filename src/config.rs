@@ -78,9 +78,6 @@ pub struct ExtractConfig {
     #[serde(default = "default_delete_archives")]
     pub delete_archives: bool,
 
-    #[serde(default = "default_dry_run")]
-    pub dry_run: bool,
-
     #[serde(default = "default_keep_failed")]
     pub keep_failed: bool,
 
@@ -164,7 +161,6 @@ impl Default for ExtractConfig {
     fn default() -> Self {
         Self {
             delete_archives: default_delete_archives(),
-            dry_run: default_dry_run(),
             keep_failed: default_keep_failed(),
             password_file: String::new(),
         }
@@ -321,10 +317,6 @@ fn default_delete_archives() -> bool {
     true
 }
 
-fn default_dry_run() -> bool {
-    true
-}
-
 fn default_keep_failed() -> bool {
     true
 }
@@ -391,7 +383,6 @@ directory="/downloads"
         assert_eq!(config.watch.resolved_directories(), vec!["/downloads"]);
         assert_eq!(config.watch.stable_after, 30);
         assert!(config.extract.delete_archives);
-        assert!(config.extract.dry_run);
         assert!(config.extract.keep_failed);
         assert_eq!(config.output.directory, "/downloads/_extracted");
         assert_eq!(config.history.directory, "/state/history");

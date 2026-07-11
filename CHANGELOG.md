@@ -7,7 +7,7 @@
 - Mehrere gleichzeitig überwachte Ordner
 - Abwärtskompatible Konfiguration über `watch.directory` und `watch.directories`
 - Verwaltung der Watch-Ordner direkt über die WebUI
-- Mehrordner-Unterstützung für Worker, Startup-Scan, manuellen Scan und Dry-Run-Prüfungen
+- Mehrordner-Unterstützung für Worker, Startup-Scan und manuellen Scan
 - Mehrordner-Ausgabe in Dashboard, Einstellungen, Diagnose und JSON-APIs
 - Speicherplatzanzeige mit Gesamt-, Belegt-, Frei- und Auslastungswerten
 - Eigene Diagnosekarte für jeden überwachten Ordner
@@ -23,6 +23,12 @@
 - Watch-Ordner werden normalisiert und doppelte Einträge entfernt
 - Alte Ein-Ordner-Konfigurationen bleiben ohne Migration nutzbar
 - Neue API-Listenfelder ergänzt; bestehende Einzelordner-Felder bleiben erhalten
+
+### Removed
+
+- Früherer Laufzeit-Sicherheitsmodus
+- Zugehörige veraltete Prüf- und Berichtsbefehle
+- Redundante Dashboard-Angaben und erklärende Footer-Hinweise
 
 ### Security
 

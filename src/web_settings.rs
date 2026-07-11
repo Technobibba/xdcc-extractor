@@ -13,7 +13,6 @@ pub(crate) struct SettingsForm {
     pub(crate) stable_after: u64,
     pub(crate) allow_root_archives: Option<String>,
     pub(crate) delete_archives: Option<String>,
-    pub(crate) dry_run: Option<String>,
     pub(crate) keep_failed: Option<String>,
     pub(crate) retry_base_delay: u64,
     pub(crate) retry_max_delay: u64,
@@ -89,12 +88,6 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
         "extract",
         "delete_archives",
         toml_bool(form.delete_archives.is_some()),
-    );
-    content = set_toml_value(
-        content,
-        "extract",
-        "dry_run",
-        toml_bool(form.dry_run.is_some()),
     );
     content = set_toml_value(
         content,

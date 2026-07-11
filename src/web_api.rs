@@ -38,7 +38,6 @@ pub(crate) async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde
         },
         "extract": {
             "delete_archives": state.config.extract.delete_archives,
-            "dry_run": state.config.extract.dry_run,
             "keep_failed": state.config.extract.keep_failed,
             "password_file_configured": !state.config.extract.password_file.trim().is_empty(),
         },
@@ -97,7 +96,6 @@ pub(crate) async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde
             .resolved_directories(),
         "output_directory": state.config.output.directory,
         "history_directory": state.config.history.directory,
-        "dry_run": state.config.extract.dry_run,
         "delete_archives": state.config.extract.delete_archives,
         "keep_failed": state.config.extract.keep_failed,
         "allow_root_archives": state.config.watch.allow_root_archives,

@@ -20,8 +20,6 @@ Stand: 2026-07-10
 
 - `--status`
 - `--scan`
-- `--dry-run-report`
-- `--dry-run-check`
 - `--clear-failed <PATH>`
 - `--process <PATH>`
 - `--help`

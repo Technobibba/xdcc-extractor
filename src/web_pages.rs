@@ -202,7 +202,6 @@ pub fn settings_edit_page_html(
 
     <section class="card">
       <h2>Entpacken</h2>
-      <label class="check"><input type="checkbox" name="dry_run" {dry_run}> Testmodus aktiv</label>
       <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
       <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
       <div class="small">Passwortdatei und Passwortlisten-Inhalt werden hier nicht bearbeitet.</div>
@@ -371,7 +370,6 @@ document.addEventListener('DOMContentLoaded', () => {{
         watch_directories = escape_html(&config.watch.resolved_directories().join("\n")),
         stable_after = config.watch.stable_after,
         allow_root_archives = checked(config.watch.allow_root_archives),
-        dry_run = checked(config.extract.dry_run),
         delete_archives = checked(config.extract.delete_archives),
         keep_failed = checked(config.extract.keep_failed),
         retry_base_delay = config.retry.base_delay,
@@ -392,12 +390,6 @@ pub fn settings_page_html(config: &Config) -> String {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
-    };
-
-    let dry_run = if config.extract.dry_run {
-        r#"<span class="badge ok">aktiv</span>"#
-    } else {
-        r#"<span class="badge warn">aus</span>"#
     };
 
     let delete_archives = if config.extract.delete_archives {
@@ -509,7 +501,6 @@ pub fn settings_page_html(config: &Config) -> String {
 
     <section class="card">
       <h2>Entpacken</h2>
-      <div class="row"><div class="key">Testmodus</div><div class="value">{dry_run}</div></div>
       <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
       <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
       <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt bleibt verborgen</span></div></div>
@@ -565,7 +556,6 @@ pub fn settings_page_html(config: &Config) -> String {
         watch_directory_rows = watch_directory_list_html(config),
         stable_after = config.watch.stable_after,
         allow_root_archives = allow_root_archives,
-        dry_run = dry_run,
         delete_archives = delete_archives,
         keep_failed = keep_failed,
         password_file_configured = password_file_configured,
@@ -595,16 +585,16 @@ pub fn dashboard_page_html(config: &Config) -> String {
     let scan_html = scan_summary_html(config);
     let failures_html = failures_html(config);
 
-    let dry_run_badge = if config.extract.dry_run {
-        r#"<span class="badge ok">aktiv</span>"#
-    } else {
-        r#"<span class="badge warn">aus</span>"#
-    };
-
     let gotify_badge = if config.notifications.gotify.enabled {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
+    };
+
+    let allow_root_archives_badge = if config.watch.allow_root_archives {
+        r#"<span class="badge ok">ja</span>"#
+    } else {
+        r#"<span class="badge muted">nein</span>"#
     };
 
     let html = format!(
@@ -620,8 +610,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
 <body>
 <main>
   <h1>XDCC Extractor</h1>
-  <div class="sub">Version {version}</div>
-
   <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
     <a class="button" href="/settings">Einstellungen</a>
@@ -654,12 +642,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Testmodus</h2>
-      <div class="value">{dry_run_badge}</div>
-      <div class="small">Archive nach Erfolg löschen: {delete_archives}</div>
-    </section>
-
-    <section class="card">
       <h2>Gotify</h2>
       <div class="value">{gotify_badge}</div>
       <div class="small">Token wird nicht angezeigt</div>
@@ -668,7 +650,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
     <section class="card">
       <h2>Verlauf</h2>
       <div class="value">{done} erledigt / {failed} fehlgeschlagen</div>
-      <div class="small"><code>{history_dir}</code></div>
     </section>
 
     <section class="card">
@@ -687,7 +668,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
 
     <section class="card">
       <h2>Archive im Hauptordner</h2>
-      <div class="value">{allow_root_archives}</div>
+      <div class="value">{allow_root_archives_badge}</div>
       <div class="small">Direkte Downloads ohne Unterordner</div>
     </section>
 
@@ -696,7 +677,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
       <div class="value">bereit</div>
       <div class="small">WebUI geschützt</div>
       <div class="small">Healthcheck aktiv</div>
-      <div class="small">Version {version}</div>
     </section>
 
     <section class="card wide">
@@ -721,22 +701,19 @@ pub fn dashboard_page_html(config: &Config) -> String {
   </div>
 
   <footer>
-    Manuelle Verarbeitung berücksichtigt Testmodus, Archivbereinigung, Verlauf und Gotify.
+    Version {version}
   </footer>
 </main>
 <script src="/assets/app.js"></script>
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),
-        dry_run_badge = dry_run_badge,
-        delete_archives = config.extract.delete_archives,
         gotify_badge = gotify_badge,
         done = history.0,
         failed = history.1,
-        history_dir = escape_html(&config.history.directory),
         watch_directory_rows = watch_directory_list_html(config),
         output_dir = escape_html(&config.output.directory),
-        allow_root_archives = config.watch.allow_root_archives,
+        allow_root_archives_badge = allow_root_archives_badge,
         scan_html = scan_html,
         failures_html = failures_html,
     );
@@ -921,12 +898,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         r#"<span class="badge ok">bereit</span>"#
     } else {
         r#"<span class="badge bad">unvollständig</span>"#
-    };
-
-    let test_mode = if config.extract.dry_run {
-        r#"<span class="badge ok">aktiv</span>"#
-    } else {
-        r#"<span class="badge muted">aus</span>"#
     };
 
     let web_status = if config.web.enabled {
@@ -1178,10 +1149,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         <div class="value"><code>{web_bind}</code></div>
       </div>
 
-      <div class="row">
-        <div class="key">Testmodus</div>
-        <div class="value">{test_mode}</div>
-      </div>
     </section>
 
     <section class="card">
@@ -1279,17 +1246,12 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     {backup_cards_html}
   </div>
 
-  <footer>
-    Diese Seite prüft nur den aktuellen Zustand. Es werden keine
-    Passwörter, Tokens oder anderen vertraulichen Inhalte angezeigt.
-  </footer>
 </main>
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),
         web_status = web_status,
         web_bind = escape_html(&config.web.bind),
-        test_mode = test_mode,
         history_status = history_status,
         history_dir = escape_html(&config.history.directory),
         history_done = history.0,
