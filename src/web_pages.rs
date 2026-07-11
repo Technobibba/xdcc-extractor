@@ -29,7 +29,6 @@ pub fn logs_page_html() -> String {
 <body>
 <main>
   <h1>Logs</h1>
-  <div class="sub">XDCC Extractor Version {version}</div>
 
     <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
@@ -44,6 +43,9 @@ pub fn logs_page_html() -> String {
     <pre id="log-output" class="logbox">Logs werden geladen...</pre>
     <div class="small">Zeigt die letzten 300 Logzeilen des laufenden Workers. Vertrauliche Daten werden nicht aus der Konfigurationsdatei oder der Passwortliste gelesen.</div>
   </section>
+  <footer class="page-version">
+    Version {version}
+  </footer>
 </main>
 
 <script>
@@ -471,7 +473,6 @@ pub fn settings_page_html(config: &Config) -> String {
 <body>
 <main>
   <h1>Einstellungen</h1>
-  <div class="sub">XDCC Extractor Version {version}</div>
 
     <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
@@ -548,6 +549,9 @@ pub fn settings_page_html(config: &Config) -> String {
 
   <footer>
     Diese Seite zeigt die aktuell geladene Konfiguration. Änderungen können im Bereich Bearbeiten vorgenommen werden und werden nach einem Neustart des Workers aktiv.
+  </footer>
+  <footer class="page-version">
+    Version {version}
   </footer>
 </main>
 </body>
@@ -1118,10 +1122,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
 <body>
 <main>
   <h1>Diagnose</h1>
-  <div class="sub">
-    Read-only Statusübersicht · Version {version}
-  </div>
-
   <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
     <a class="button" href="/settings">Einstellungen</a>
@@ -1133,11 +1133,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
   <div class="grid">
     <section class="card">
       <h2>System</h2>
-
-      <div class="row">
-        <div class="key">Version</div>
-        <div class="value">{version}</div>
-      </div>
 
       <div class="row">
         <div class="key">WebUI</div>
@@ -1246,6 +1241,9 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     {backup_cards_html}
   </div>
 
+  <footer class="page-version">
+    Version {version}
+  </footer>
 </main>
 </body>
 </html>"#,

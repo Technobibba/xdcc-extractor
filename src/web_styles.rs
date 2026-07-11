@@ -36,6 +36,12 @@ const COMMON_CSS: &str = r###"code {
   overflow-wrap: anywhere;
   word-break: normal;
 }
+
+.page-version {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 13px;
+}
 "###;
 
 pub async fn common_css() -> impl IntoResponse {
