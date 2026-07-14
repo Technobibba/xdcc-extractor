@@ -136,6 +136,33 @@ echo "XDCC Extractor WebUI Smoke-Test"
 echo "Ziel: $BASE_URL"
 echo
 
+
+check_page_absent() {
+    local path="$1"
+    local unexpected="$2"
+    local response
+
+    printf "Prüfe %-32s " "$path"
+
+    response="$(
+        curl \
+            --fail \
+            --silent \
+            --show-error \
+            --user "${AUTH_USER}:${AUTH_PASSWORD}" \
+            "${BASE_URL}${path}"
+    )"
+
+    if grep -Fq "$unexpected" <<<"$response"; then
+        echo "FEHLER"
+        echo "Unerwarteter Inhalt wurde gefunden:"
+        echo "$unexpected"
+        exit 1
+    fi
+
+    echo "OK"
+}
+
 echo "== Öffentlicher Endpunkt =="
 check_public "/health"
 
@@ -278,5 +305,22 @@ check_page "/settings/edit" "Passwortliste verwalten"
 check_page "/settings/edit" "Worker neu starten"
 check_page "/settings" "Thema (Topic) konfiguriert"
 check_page "/diagnostics" "Thema (Topic) konfiguriert"
+
+
+echo
+echo "== Dashboard-Karten RC1.2 =="
+check_page "/" "<h2>Worker &amp; System</h2>"
+check_page_absent "/" "<h2>Archive im Hauptordner</h2>"
+check_page_absent "/" "<h2>System</h2>"
+
+echo
+echo "== Dashboard-Raster v1.1.0 =="
+check_page "/" 'class="dashboard-overview"'
+check_page "/" 'class="card dashboard-primary-card"'
+check_page "/" 'class="dashboard-compact-grid"'
+check_page "/" 'class="grid dashboard-content-grid"'
+check_page "/assets/dashboard.css" ".dashboard-overview {"
+check_page "/assets/dashboard.css" ".dashboard-compact-grid {"
+check_page "/assets/dashboard.css" "grid-template-columns: repeat(2, minmax(0, 1fr));"
 
 echo "Alle WebUI-Tests erfolgreich."

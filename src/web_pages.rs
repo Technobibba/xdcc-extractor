@@ -636,12 +636,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let allow_root_archives_badge = if config.watch.allow_root_archives {
-        r#"<span class="badge ok">ja</span>"#
-    } else {
-        r#"<span class="badge muted">nein</span>"#
-    };
-
     let html = format!(
         r#"<!doctype html>
 <html lang="de">
@@ -679,53 +673,49 @@ pub fn dashboard_page_html(config: &Config) -> String {
     Automatische Aktualisierung: alle 30 Sekunden.
   </div>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Worker</h2>
+  <div class="dashboard-overview">
+    <section class="card dashboard-primary-card">
+      <h2>Worker &amp; System</h2>
       <div class="value">läuft</div>
       <div class="small">WebUI erreichbar</div>
-    </section>
-
-    <section class="card">
-      <h2>ntfy</h2>
-      <div class="value">{ntfy_badge}</div>
-    </section>
-
-    <section class="card">
-      <h2>Verlauf</h2>
-      <div class="value history-counts">
-        <div>{done} erledigt</div>
-        <div>{failed} fehlgeschlagen</div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Überwachter Ordner</h2>
-      <div class="small">
-        <div class="watch-directory-list">
-          {watch_directory_rows}
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Ausgabeordner</h2>
-      <div class="small"><code>{output_dir}</code></div>
-    </section>
-
-    <section class="card">
-      <h2>Archive im Hauptordner</h2>
-      <div class="value">{allow_root_archives_badge}</div>
-      <div class="small">Direkte Downloads ohne Unterordner</div>
-    </section>
-
-    <section class="card">
-      <h2>System</h2>
-      <div class="value">bereit</div>
+      <div class="dashboard-card-divider"></div>
+      <div class="small dashboard-card-label">Systemstatus</div>
+      <div class="value dashboard-secondary-value">bereit</div>
       <div class="small">WebUI geschützt</div>
       <div class="small">Healthcheck aktiv</div>
     </section>
 
+    <div class="dashboard-compact-grid">
+      <section class="card">
+        <h2>ntfy</h2>
+        <div class="value">{ntfy_badge}</div>
+      </section>
+
+      <section class="card">
+        <h2>Überwachter Ordner</h2>
+        <div class="small">
+          <div class="watch-directory-list">
+            {watch_directory_rows}
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Verlauf</h2>
+        <div class="value history-counts">
+          <div>{done} erledigt</div>
+          <div>{failed} fehlgeschlagen</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Ausgabeordner</h2>
+        <div class="small"><code>{output_dir}</code></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="grid dashboard-content-grid">
     <section class="card wide">
       <div class="card-head">
         <h2>Releases</h2>
@@ -760,7 +750,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
         failed = history.1,
         watch_directory_rows = watch_directory_list_html(config),
         output_dir = escape_html(&config.output.directory),
-        allow_root_archives_badge = allow_root_archives_badge,
         scan_html = scan_html,
         failures_html = failures_html,
     );

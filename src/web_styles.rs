@@ -42,6 +42,20 @@ const COMMON_CSS: &str = r###"code {
   color: var(--muted);
   font-size: 13px;
 }
+
+.dashboard-card-divider {
+  height: 1px;
+  margin: 18px 0 14px;
+  background: var(--border);
+}
+
+.dashboard-card-label {
+  margin-top: 0;
+}
+
+.dashboard-secondary-value {
+  margin-top: 6px;
+}
 "###;
 
 pub async fn common_css() -> impl IntoResponse {
@@ -641,6 +655,34 @@ h1 {
   gap: 14px;
 }
 
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(280px, .95fr) minmax(0, 2fr);
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.dashboard-primary-card {
+  min-height: 100%;
+}
+
+.dashboard-compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-compact-grid .card {
+  min-width: 0;
+  height: 100%;
+}
+
+.dashboard-content-grid {
+  grid-template-columns: 1fr;
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -805,10 +847,26 @@ footer {
   font-size: 13px;
 }
 
+@media (max-width: 860px) {
+  .dashboard-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-primary-card {
+    min-height: auto;
+  }
+}
+
 @media (max-width: 720px) {
+  .dashboard-compact-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
   .scan-row {
     grid-template-columns: 1fr;
   }
+
   .scan-actions {
     text-align: left;
   }
