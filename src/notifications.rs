@@ -1,8 +1,33 @@
-use crate::config::NotificationConfig;
+use crate::config::{NotificationConfig, NtfyConfig};
 use anyhow::{Context, Result, bail};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::path::Path;
 use tracing::{info, warn};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationEvent {
+    ProcessingSucceeded,
+    ProcessingFailed,
+    Test,
+}
+
+impl NotificationEvent {
+    fn title(self) -> &'static str {
+        match self {
+            Self::ProcessingSucceeded => "XDCC Extractor: Erfolg",
+            Self::ProcessingFailed => "XDCC Extractor: Fehler",
+            Self::Test => "XDCC Extractor: Testnachricht",
+        }
+    }
+
+    fn tags(self) -> &'static [&'static str] {
+        match self {
+            Self::ProcessingSucceeded => &["white_check_mark", "package"],
+            Self::ProcessingFailed => &["warning", "package"],
+            Self::Test => &["white_check_mark", "test_tube"],
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Notifications {
@@ -14,51 +39,57 @@ impl Notifications {
         Self { config }
     }
 
-    pub fn gotify_enabled(&self) -> bool {
-        self.config.gotify.enabled
+    pub fn enabled(&self) -> bool {
+        self.config.enabled
+    }
+
+    pub fn provider(&self) -> &str {
+        self.config.provider.trim()
     }
 
     pub fn send_success(&self, release: &Path) {
-        let gotify = &self.config.gotify;
+        let ntfy = &self.config.ntfy;
 
-        if !gotify.enabled || !gotify.notify_on_success {
+        if !self.enabled() || !ntfy.notify_on_success {
             return;
         }
 
-        let title = "XDCC Extractor: Erfolg";
         let message = format!("Release erfolgreich verarbeitet:\n{}", release.display());
 
-        if let Err(err) = self.send_gotify(title, &message, gotify.priority_success) {
-            warn!("Gotify-Erfolgsmeldung fehlgeschlagen: {:?}", err);
+        if let Err(err) = self.send_ntfy(
+            NotificationEvent::ProcessingSucceeded,
+            &message,
+            ntfy.priority_success,
+        ) {
+            warn!("ntfy-Erfolgsmeldung fehlgeschlagen: {err:#}");
         }
     }
 
     pub fn send_failure(&self, release: &Path, attempts: u64, error: &str) {
-        let gotify = &self.config.gotify;
+        let ntfy = &self.config.ntfy;
 
-        if !gotify.enabled || !gotify.notify_on_error {
+        if !self.enabled() || !ntfy.notify_on_error {
             return;
         }
 
-        if !gotify.notify_on_every_error {
-            if attempts < gotify.notify_after_attempts {
+        if !ntfy.notify_on_every_error {
+            if attempts < ntfy.notify_after_attempts {
                 info!(
-                    "Gotify-Fehlermeldung übersprungen: Versuch {}/{}",
-                    attempts, gotify.notify_after_attempts
+                    "ntfy-Fehlermeldung übersprungen: Versuch {}/{}",
+                    attempts, ntfy.notify_after_attempts
                 );
                 return;
             }
 
-            if attempts > gotify.notify_after_attempts {
+            if attempts > ntfy.notify_after_attempts {
                 info!(
-                    "Gotify-Fehlermeldung wurde bereits ab Versuch {} gesendet. Aktueller Versuch: {}",
-                    gotify.notify_after_attempts, attempts
+                    "ntfy-Fehlermeldung wurde bereits ab Versuch {} gesendet. Aktueller Versuch: {}",
+                    ntfy.notify_after_attempts, attempts
                 );
                 return;
             }
         }
 
-        let title = "XDCC Extractor: Fehler";
         let message = format!(
             "Release fehlgeschlagen:\n{}\n\nFehlversuche: {}\n\nFehler:\n{}",
             release.display(),
@@ -66,47 +97,85 @@ impl Notifications {
             shorten(error, 1200)
         );
 
-        if let Err(err) = self.send_gotify(title, &message, gotify.priority_error) {
-            warn!("Gotify-Fehlermeldung fehlgeschlagen: {:?}", err);
+        if let Err(err) = self.send_ntfy(
+            NotificationEvent::ProcessingFailed,
+            &message,
+            ntfy.priority_error,
+        ) {
+            warn!("ntfy-Fehlermeldung fehlgeschlagen: {err:#}");
         }
     }
 
-    fn send_gotify(&self, title: &str, message: &str, priority: i32) -> Result<()> {
-        let gotify = &self.config.gotify;
-
-        if !gotify.enabled {
-            return Ok(());
+    pub fn send_test(&self) -> Result<()> {
+        if !self.enabled() {
+            bail!("Benachrichtigungen sind deaktiviert");
         }
 
-        if gotify.url.trim().is_empty() {
-            bail!("Gotify ist aktiviert, aber url ist leer");
+        self.send_ntfy(
+            NotificationEvent::Test,
+            "Die ntfy-Konfiguration des XDCC Extractors funktioniert.",
+            self.config.ntfy.priority_success,
+        )
+    }
+
+    fn send_ntfy(&self, event: NotificationEvent, message: &str, priority: u8) -> Result<()> {
+        if self.provider() != "ntfy" {
+            bail!(
+                "Nicht unterstützter Benachrichtigungsanbieter: {}",
+                self.provider()
+            );
         }
 
-        if gotify.token.trim().is_empty() {
-            bail!("Gotify ist aktiviert, aber token ist leer");
+        let ntfy = &self.config.ntfy;
+        validate_runtime_config(ntfy)?;
+
+        let endpoint = ntfy.server.trim_end_matches('/');
+        let payload = build_payload(ntfy, event, message, priority);
+        let mut request = ureq::post(endpoint).set("Content-Type", "application/json");
+
+        if !ntfy.token.trim().is_empty() {
+            request = request.set("Authorization", &format!("Bearer {}", ntfy.token.trim()));
         }
 
-        let endpoint = format!(
-            "{}/message?token={}",
-            gotify.url.trim_end_matches('/'),
-            gotify.token
-        );
-
-        let payload = json!({
-            "title": title,
-            "message": message,
-            "priority": priority,
-        });
-
-        let response = ureq::post(&endpoint)
-            .set("Content-Type", "application/json")
+        let response = request
             .send_json(payload)
-            .with_context(|| "Gotify Request fehlgeschlagen")?;
+            .with_context(|| format!("ntfy Request an {endpoint} fehlgeschlagen"))?;
 
-        info!("Gotify-Meldung gesendet: HTTP {}", response.status());
+        info!(
+            "ntfy-Meldung '{}' gesendet: HTTP {}",
+            event.title(),
+            response.status()
+        );
 
         Ok(())
     }
+}
+
+fn validate_runtime_config(ntfy: &NtfyConfig) -> Result<()> {
+    if ntfy.server.trim().is_empty() {
+        bail!("ntfy ist aktiviert, aber server ist leer");
+    }
+
+    if ntfy.topic.trim().is_empty() {
+        bail!("ntfy ist aktiviert, aber topic ist leer");
+    }
+
+    Ok(())
+}
+
+fn build_payload(
+    ntfy: &NtfyConfig,
+    event: NotificationEvent,
+    message: &str,
+    priority: u8,
+) -> Value {
+    json!({
+        "topic": ntfy.topic.trim(),
+        "title": event.title(),
+        "message": message,
+        "priority": priority,
+        "tags": event.tags(),
+    })
 }
 
 fn shorten(input: &str, max_chars: usize) -> String {
@@ -117,4 +186,77 @@ fn shorten(input: &str, max_chars: usize) -> String {
     let mut output: String = input.chars().take(max_chars).collect();
     output.push_str("\n... gekürzt ...");
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ntfy_config() -> NtfyConfig {
+        NtfyConfig {
+            server: "https://ntfy.example.org/".to_string(),
+            topic: "xdcc-extractor".to_string(),
+            token: "secret-token".to_string(),
+            priority_success: 3,
+            priority_error: 5,
+            notify_on_success: true,
+            notify_on_error: true,
+            notify_on_every_error: false,
+            notify_after_attempts: 3,
+        }
+    }
+
+    #[test]
+    fn success_payload_contains_topic_title_priority_and_tags() {
+        let payload = build_payload(
+            &ntfy_config(),
+            NotificationEvent::ProcessingSucceeded,
+            "fertig",
+            3,
+        );
+
+        assert_eq!(payload["topic"], "xdcc-extractor");
+        assert_eq!(payload["title"], "XDCC Extractor: Erfolg");
+        assert_eq!(payload["message"], "fertig");
+        assert_eq!(payload["priority"], 3);
+        assert_eq!(payload["tags"][0], "white_check_mark");
+    }
+
+    #[test]
+    fn failure_payload_uses_error_metadata() {
+        let payload = build_payload(
+            &ntfy_config(),
+            NotificationEvent::ProcessingFailed,
+            "fehlgeschlagen",
+            5,
+        );
+
+        assert_eq!(payload["title"], "XDCC Extractor: Fehler");
+        assert_eq!(payload["priority"], 5);
+        assert_eq!(payload["tags"][0], "warning");
+    }
+
+    #[test]
+    fn shorten_preserves_short_messages() {
+        assert_eq!(shorten("kurz", 10), "kurz");
+    }
+
+    #[test]
+    fn shorten_limits_unicode_by_characters() {
+        assert_eq!(shorten("äöüß", 3), "äöü\n... gekürzt ...");
+    }
+
+    #[test]
+    fn runtime_validation_accepts_public_topic_without_token() {
+        let mut config = ntfy_config();
+        config.token.clear();
+        assert!(validate_runtime_config(&config).is_ok());
+    }
+
+    #[test]
+    fn runtime_validation_rejects_missing_topic() {
+        let mut config = ntfy_config();
+        config.topic.clear();
+        assert!(validate_runtime_config(&config).is_err());
+    }
 }
