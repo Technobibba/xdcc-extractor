@@ -270,7 +270,7 @@ textarea {
   font-size: 13px;
 }
 
-.gotify-priority-grid {
+.ntfy-priority-grid {
   margin-top: 16px;
 }
 

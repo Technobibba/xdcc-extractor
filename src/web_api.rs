@@ -55,16 +55,18 @@ pub(crate) async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde
             "scan_existing": state.config.startup.scan_existing,
         },
         "notifications": {
-            "gotify": {
-                "enabled": state.config.notifications.gotify.enabled,
-                "url_configured": !state.config.notifications.gotify.url.trim().is_empty(),
-                "token_configured": !state.config.notifications.gotify.token.trim().is_empty(),
-                "priority_success": state.config.notifications.gotify.priority_success,
-                "priority_error": state.config.notifications.gotify.priority_error,
-                "notify_on_success": state.config.notifications.gotify.notify_on_success,
-                "notify_on_error": state.config.notifications.gotify.notify_on_error,
-                "notify_on_every_error": state.config.notifications.gotify.notify_on_every_error,
-                "notify_after_attempts": state.config.notifications.gotify.notify_after_attempts,
+            "enabled": state.config.notifications.enabled,
+            "provider": state.config.notifications.provider,
+            "ntfy": {
+                "server_configured": !state.config.notifications.ntfy.server.trim().is_empty(),
+                "topic_configured": !state.config.notifications.ntfy.topic.trim().is_empty(),
+                "token_configured": !state.config.notifications.ntfy.token.trim().is_empty(),
+                "priority_success": state.config.notifications.ntfy.priority_success,
+                "priority_error": state.config.notifications.ntfy.priority_error,
+                "notify_on_success": state.config.notifications.ntfy.notify_on_success,
+                "notify_on_error": state.config.notifications.ntfy.notify_on_error,
+                "notify_on_every_error": state.config.notifications.ntfy.notify_on_every_error,
+                "notify_after_attempts": state.config.notifications.ntfy.notify_after_attempts,
             }
         },
         "web": {
@@ -72,7 +74,7 @@ pub(crate) async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde
             "bind": state.config.web.bind,
         },
         "secrets": {
-            "gotify_token_visible": false,
+            "notification_token_visible": false,
             "password_file_content_visible": false,
         }
     }))
@@ -99,7 +101,7 @@ pub(crate) async fn api_status(State(state): State<Arc<AppState>>) -> Json<serde
         "delete_archives": state.config.extract.delete_archives,
         "keep_failed": state.config.extract.keep_failed,
         "allow_root_archives": state.config.watch.allow_root_archives,
-        "gotify_enabled": state.config.notifications.gotify.enabled,
+        "notifications_enabled": state.config.notifications.enabled,
         "web_enabled": state.config.web.enabled,
         "web_bind": state.config.web.bind,
         "history_done": history.0,

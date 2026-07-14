@@ -225,38 +225,47 @@ pub fn settings_edit_page_html(
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
-      <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
+      <h2>ntfy</h2>
+      <label class="check"><input type="checkbox" name="notifications_enabled" {notifications_enabled}> Benachrichtigungen aktiv</label>
       <div class="grid">
         <div class="field full">
-          <label for="gotify_url">Gotify-URL neu setzen</label>
-          <input id="gotify_url" name="gotify_url" type="text" value="" placeholder="Leer lassen = bestehende URL behalten" autocomplete="off">
+          <label for="ntfy_server">ntfy-Server neu setzen</label>
+          <input id="ntfy_server" name="ntfy_server" type="url" value="" placeholder="Leer lassen = bestehenden Server behalten" autocomplete="off">
         </div>
         <div class="field full">
-          <label for="gotify_token">Gotify-Token neu setzen</label>
-          <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
+          <label for="ntfy_topic">ntfy-Topic neu setzen</label>
+          <input id="ntfy_topic" name="ntfy_topic" type="text" value="" placeholder="Leer lassen = bestehendes Topic behalten" autocomplete="off">
+        </div>
+        <div class="field full">
+          <label for="ntfy_token">ntfy-Token neu setzen</label>
+          <input id="ntfy_token" name="ntfy_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
         </div>
       </div>
-      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Leere Felder behalten die bisherigen Werte.</div>
+      <div class="small">Server, Topic und Token werden aus Sicherheitsgründen nicht angezeigt. Leere Felder behalten die bisherigen Werte.</div>
 
-      <div class="grid gotify-priority-grid">
+      <div class="grid ntfy-priority-grid">
         <div>
-          <label for="gotify_priority_success">Priorität bei Erfolg</label>
-          <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
+          <label for="ntfy_priority_success">Priorität bei Erfolg</label>
+          <input id="ntfy_priority_success" name="ntfy_priority_success" type="number" min="1" max="5" value="{ntfy_priority_success}">
         </div>
         <div>
-          <label for="gotify_priority_error">Priorität bei Fehler</label>
-          <input id="gotify_priority_error" name="gotify_priority_error" type="number" value="{gotify_priority_error}">
+          <label for="ntfy_priority_error">Priorität bei Fehler</label>
+          <input id="ntfy_priority_error" name="ntfy_priority_error" type="number" min="1" max="5" value="{ntfy_priority_error}">
         </div>
         <div>
-          <label for="gotify_notify_after_attempts">Fehler melden nach Versuchen</label>
-          <input id="gotify_notify_after_attempts" name="gotify_notify_after_attempts" type="number" min="1" value="{gotify_notify_after_attempts}">
+          <label for="ntfy_notify_after_attempts">Fehler melden nach Versuchen</label>
+          <input id="ntfy_notify_after_attempts" name="ntfy_notify_after_attempts" type="number" min="1" value="{ntfy_notify_after_attempts}">
         </div>
       </div>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Beide Werte können im Bereich „Bearbeiten“ neu gesetzt werden.</div>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_success" {ntfy_notify_on_success}> Erfolg melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_error" {ntfy_notify_on_error}> Fehler melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_every_error" {ntfy_notify_on_every_error}> Jeden Fehler melden</label>
+      <div class="small">Server, Topic und Token werden aus Sicherheitsgründen nicht angezeigt. Diese Werte können hier neu gesetzt werden.</div>
+    </section>
+    <section class="card">
+      <h2>ntfy testen</h2>
+      <div class="small">Der Test verwendet die zuletzt gespeicherte Konfiguration. Speichere Änderungen zuerst und starte anschließend den Test.</div>
+      <button type="submit" formaction="/settings/notifications/test" formmethod="post" style="margin-top: 16px;">Testnachricht senden</button>
     </section>
 
     <div class="actions">
@@ -377,18 +386,18 @@ document.addEventListener('DOMContentLoaded', () => {{
         retry_base_delay = config.retry.base_delay,
         retry_max_delay = config.retry.max_delay,
         startup_scan_existing = checked(config.startup.scan_existing),
-        gotify_enabled = checked(config.notifications.gotify.enabled),
-        gotify_priority_success = config.notifications.gotify.priority_success,
-        gotify_priority_error = config.notifications.gotify.priority_error,
-        gotify_notify_on_success = checked(config.notifications.gotify.notify_on_success),
-        gotify_notify_on_error = checked(config.notifications.gotify.notify_on_error),
-        gotify_notify_on_every_error = checked(config.notifications.gotify.notify_on_every_error),
-        gotify_notify_after_attempts = config.notifications.gotify.notify_after_attempts,
+        notifications_enabled = checked(config.notifications.enabled),
+        ntfy_priority_success = config.notifications.ntfy.priority_success,
+        ntfy_priority_error = config.notifications.ntfy.priority_error,
+        ntfy_notify_on_success = checked(config.notifications.ntfy.notify_on_success),
+        ntfy_notify_on_error = checked(config.notifications.ntfy.notify_on_error),
+        ntfy_notify_on_every_error = checked(config.notifications.ntfy.notify_on_every_error),
+        ntfy_notify_after_attempts = config.notifications.ntfy.notify_after_attempts,
     )
 }
 
 pub fn settings_page_html(config: &Config) -> String {
-    let gotify_enabled = if config.notifications.gotify.enabled {
+    let notifications_enabled = if config.notifications.enabled {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -418,19 +427,19 @@ pub fn settings_page_html(config: &Config) -> String {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_success = if config.notifications.gotify.notify_on_success {
+    let notify_on_success = if config.notifications.ntfy.notify_on_success {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_error = if config.notifications.gotify.notify_on_error {
+    let notify_on_error = if config.notifications.ntfy.notify_on_error {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_every_error = if config.notifications.gotify.notify_on_every_error {
+    let notify_on_every_error = if config.notifications.ntfy.notify_on_every_error {
         r#"<span class="badge warn">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -442,13 +451,19 @@ pub fn settings_page_html(config: &Config) -> String {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let gotify_url_configured = if config.notifications.gotify.url.trim().is_empty() {
+    let ntfy_server_configured = if config.notifications.ntfy.server.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
         r#"<span class="badge ok">ja</span>"#
     };
 
-    let token_configured = if config.notifications.gotify.token.trim().is_empty() {
+    let ntfy_topic_configured = if config.notifications.ntfy.topic.trim().is_empty() {
+        r#"<span class="badge bad">nein</span>"#
+    } else {
+        r#"<span class="badge ok">ja</span>"#
+    };
+
+    let token_configured = if config.notifications.ntfy.token.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
         r#"<span class="badge ok">ja</span>"#
@@ -522,9 +537,10 @@ pub fn settings_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
-      <div class="row"><div class="key">Gotify aktiv</div><div class="value">{gotify_enabled}</div></div>
-      <div class="row"><div class="key">Gotify-URL konfiguriert</div><div class="value">{gotify_url_configured}</div></div>
+      <h2>ntfy</h2>
+      <div class="row"><div class="key">Benachrichtigungen aktiv</div><div class="value">{notifications_enabled}</div></div>
+      <div class="row"><div class="key">ntfy-Server konfiguriert</div><div class="value">{ntfy_server_configured}</div></div>
+      <div class="row"><div class="key">Topic konfiguriert</div><div class="value">{ntfy_topic_configured}</div></div>
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
@@ -542,7 +558,7 @@ pub fn settings_page_html(config: &Config) -> String {
 
     <section class="card wide">
       <h2>Vertrauliche Daten</h2>
-      <div class="row"><div class="key">Gotify Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
+      <div class="row"><div class="key">ntfy Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
       <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt bleibt verborgen</span></div></div>
     </section>
   </div>
@@ -569,14 +585,16 @@ pub fn settings_page_html(config: &Config) -> String {
         base_delay = config.retry.base_delay,
         max_delay = config.retry.max_delay,
         startup_scan = startup_scan,
-        gotify_enabled = gotify_enabled,
+        notifications_enabled = notifications_enabled,
+        ntfy_server_configured = ntfy_server_configured,
+        ntfy_topic_configured = ntfy_topic_configured,
         token_configured = token_configured,
-        priority_success = config.notifications.gotify.priority_success,
-        priority_error = config.notifications.gotify.priority_error,
+        priority_success = config.notifications.ntfy.priority_success,
+        priority_error = config.notifications.ntfy.priority_error,
         notify_on_success = notify_on_success,
         notify_on_error = notify_on_error,
         notify_on_every_error = notify_on_every_error,
-        notify_after_attempts = config.notifications.gotify.notify_after_attempts,
+        notify_after_attempts = config.notifications.ntfy.notify_after_attempts,
         web_enabled = web_enabled,
         web_bind = escape_html(&config.web.bind),
     );
@@ -589,7 +607,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
     let scan_html = scan_summary_html(config);
     let failures_html = failures_html(config);
 
-    let gotify_badge = if config.notifications.gotify.enabled {
+    let ntfy_badge = if config.notifications.enabled {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -646,8 +664,8 @@ pub fn dashboard_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
-      <div class="value">{gotify_badge}</div>
+      <h2>ntfy</h2>
+      <div class="value">{ntfy_badge}</div>
       <div class="small">Token wird nicht angezeigt</div>
     </section>
 
@@ -712,7 +730,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),
-        gotify_badge = gotify_badge,
+        ntfy_badge = ntfy_badge,
         done = history.0,
         failed = history.1,
         watch_directory_rows = watch_directory_list_html(config),
@@ -892,13 +910,15 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         "—".to_string()
     };
 
-    let gotify_url_configured = !config.notifications.gotify.url.trim().is_empty();
+    let ntfy_server_configured = !config.notifications.ntfy.server.trim().is_empty();
 
-    let gotify_token_configured = !config.notifications.gotify.token.trim().is_empty();
+    let ntfy_token_configured = !config.notifications.ntfy.token.trim().is_empty();
 
-    let gotify_status = if !config.notifications.gotify.enabled {
+    let ntfy_topic_configured = !config.notifications.ntfy.topic.trim().is_empty();
+
+    let ntfy_status = if !config.notifications.enabled {
         r#"<span class="badge muted">aus</span>"#
-    } else if gotify_url_configured && gotify_token_configured {
+    } else if ntfy_server_configured && ntfy_topic_configured {
         r#"<span class="badge ok">bereit</span>"#
     } else {
         r#"<span class="badge bad">unvollständig</span>"#
@@ -1194,21 +1214,26 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
+      <h2>ntfy</h2>
 
       <div class="row">
         <div class="key">Status</div>
-        <div class="value">{gotify_status}</div>
+        <div class="value">{ntfy_status}</div>
       </div>
 
       <div class="row">
         <div class="key">URL konfiguriert</div>
-        <div class="value">{gotify_url_status}</div>
+        <div class="value">{ntfy_server_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Topic konfiguriert</div>
+        <div class="value">{ntfy_topic_status}</div>
       </div>
 
       <div class="row">
         <div class="key">Token konfiguriert</div>
-        <div class="value">{gotify_token_status}</div>
+        <div class="value">{ntfy_token_status}</div>
       </div>
 
       <div class="row">
@@ -1256,9 +1281,10 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         history_failed = history.1,
         password_status = password_status,
         password_path = password_path,
-        gotify_status = gotify_status,
-        gotify_url_status = yes_no_badge(gotify_url_configured),
-        gotify_token_status = yes_no_badge(gotify_token_configured),
+        ntfy_status = ntfy_status,
+        ntfy_server_status = yes_no_badge(ntfy_server_configured),
+        ntfy_topic_status = yes_no_badge(ntfy_topic_configured),
+        ntfy_token_status = yes_no_badge(ntfy_token_configured),
         disk_cards_html = disk_cards_html,
         backup_cards_html = backup_cards_html,
     )
