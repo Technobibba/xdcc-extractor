@@ -257,7 +257,10 @@ pub fn settings_edit_page_html(
           <input id="ntfy_notify_after_attempts" name="ntfy_notify_after_attempts" type="number" min="1" value="{ntfy_notify_after_attempts}">
         </div>
       </div>
-      <label class="check"><input type="checkbox" name="ntfy_notify_on_success" {ntfy_notify_on_success}> Erfolg melden</label>
+      <h3>Ereignisse</h3>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_worker_start" {ntfy_notify_on_worker_start}> Worker-Start melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_processing_start" {ntfy_notify_on_processing_start}> Beginn einer Verarbeitung melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_success" {ntfy_notify_on_success}> Erfolgreiche Verarbeitung melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_error" {ntfy_notify_on_error}> Fehler melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_every_error" {ntfy_notify_on_every_error}> Jeden Fehler melden</label>
       <div class="small">Server, Topic und Token werden aus Sicherheitsgründen nicht angezeigt. Diese Werte können hier neu gesetzt werden.</div>
@@ -389,6 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {{
         notifications_enabled = checked(config.notifications.enabled),
         ntfy_priority_success = config.notifications.ntfy.priority_success,
         ntfy_priority_error = config.notifications.ntfy.priority_error,
+        ntfy_notify_on_worker_start = checked(config.notifications.ntfy.notify_on_worker_start),
+        ntfy_notify_on_processing_start =
+            checked(config.notifications.ntfy.notify_on_processing_start),
         ntfy_notify_on_success = checked(config.notifications.ntfy.notify_on_success),
         ntfy_notify_on_error = checked(config.notifications.ntfy.notify_on_error),
         ntfy_notify_on_every_error = checked(config.notifications.ntfy.notify_on_every_error),
@@ -422,6 +428,18 @@ pub fn settings_page_html(config: &Config) -> String {
     };
 
     let allow_root_archives = if config.watch.allow_root_archives {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_worker_start = if config.notifications.ntfy.notify_on_worker_start {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_processing_start = if config.notifications.ntfy.notify_on_processing_start {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -544,7 +562,9 @@ pub fn settings_page_html(config: &Config) -> String {
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
-      <div class="row"><div class="key">Erfolg melden</div><div class="value">{notify_on_success}</div></div>
+      <div class="row"><div class="key">Worker-Start melden</div><div class="value">{notify_on_worker_start}</div></div>
+      <div class="row"><div class="key">Verarbeitungsbeginn melden</div><div class="value">{notify_on_processing_start}</div></div>
+      <div class="row"><div class="key">Erfolgreiche Verarbeitung melden</div><div class="value">{notify_on_success}</div></div>
       <div class="row"><div class="key">Fehler melden</div><div class="value">{notify_on_error}</div></div>
       <div class="row"><div class="key">Jeden Fehler melden</div><div class="value">{notify_on_every_error}</div></div>
       <div class="row"><div class="key">Fehler melden nach Versuchen</div><div class="value">{notify_after_attempts}</div></div>
@@ -591,6 +611,8 @@ pub fn settings_page_html(config: &Config) -> String {
         token_configured = token_configured,
         priority_success = config.notifications.ntfy.priority_success,
         priority_error = config.notifications.ntfy.priority_error,
+        notify_on_worker_start = notify_on_worker_start,
+        notify_on_processing_start = notify_on_processing_start,
         notify_on_success = notify_on_success,
         notify_on_error = notify_on_error,
         notify_on_every_error = notify_on_every_error,

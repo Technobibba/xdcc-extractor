@@ -63,6 +63,8 @@ pub(crate) async fn api_config(State(state): State<Arc<AppState>>) -> Json<serde
                 "token_configured": !state.config.notifications.ntfy.token.trim().is_empty(),
                 "priority_success": state.config.notifications.ntfy.priority_success,
                 "priority_error": state.config.notifications.ntfy.priority_error,
+                "notify_on_worker_start": state.config.notifications.ntfy.notify_on_worker_start,
+                "notify_on_processing_start": state.config.notifications.ntfy.notify_on_processing_start,
                 "notify_on_success": state.config.notifications.ntfy.notify_on_success,
                 "notify_on_error": state.config.notifications.ntfy.notify_on_error,
                 "notify_on_every_error": state.config.notifications.ntfy.notify_on_every_error,

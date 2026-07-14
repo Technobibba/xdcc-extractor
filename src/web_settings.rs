@@ -23,6 +23,8 @@ pub(crate) struct SettingsForm {
     pub(crate) ntfy_token: String,
     pub(crate) ntfy_priority_success: u8,
     pub(crate) ntfy_priority_error: u8,
+    pub(crate) ntfy_notify_on_worker_start: Option<String>,
+    pub(crate) ntfy_notify_on_processing_start: Option<String>,
     pub(crate) ntfy_notify_on_success: Option<String>,
     pub(crate) ntfy_notify_on_error: Option<String>,
     pub(crate) ntfy_notify_on_every_error: Option<String>,
@@ -163,6 +165,18 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
         "notifications.ntfy",
         "priority_error",
         &form.ntfy_priority_error.to_string(),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.ntfy",
+        "notify_on_worker_start",
+        toml_bool(form.ntfy_notify_on_worker_start.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.ntfy",
+        "notify_on_processing_start",
+        toml_bool(form.ntfy_notify_on_processing_start.is_some()),
     );
     content = set_toml_value(
         content,

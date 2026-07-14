@@ -6,6 +6,8 @@ use tracing::{info, warn};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NotificationEvent {
+    WorkerStarted,
+    ProcessingStarted,
     ProcessingSucceeded,
     ProcessingFailed,
     Test,
@@ -14,14 +16,18 @@ pub enum NotificationEvent {
 impl NotificationEvent {
     fn title(self) -> &'static str {
         match self {
-            Self::ProcessingSucceeded => "XDCC Extractor: Erfolg",
-            Self::ProcessingFailed => "XDCC Extractor: Fehler",
+            Self::WorkerStarted => "XDCC Extractor: Worker gestartet",
+            Self::ProcessingStarted => "XDCC Extractor: Verarbeitung gestartet",
+            Self::ProcessingSucceeded => "XDCC Extractor: Verarbeitung erfolgreich",
+            Self::ProcessingFailed => "XDCC Extractor: Verarbeitung fehlgeschlagen",
             Self::Test => "XDCC Extractor: Testnachricht",
         }
     }
 
     fn tags(self) -> &'static [&'static str] {
         match self {
+            Self::WorkerStarted => &["rocket", "gear"],
+            Self::ProcessingStarted => &["package", "hourglass_flowing_sand"],
             Self::ProcessingSucceeded => &["white_check_mark", "package"],
             Self::ProcessingFailed => &["warning", "package"],
             Self::Test => &["white_check_mark", "test_tube"],
@@ -45,6 +51,44 @@ impl Notifications {
 
     pub fn provider(&self) -> &str {
         self.config.provider.trim()
+    }
+
+    pub fn send_worker_started(&self) {
+        let ntfy = &self.config.ntfy;
+
+        if !self.enabled() || !ntfy.notify_on_worker_start {
+            return;
+        }
+
+        if let Err(err) = self.send_ntfy(
+            NotificationEvent::WorkerStarted,
+            "Der XDCC-Extractor-Worker wurde gestartet und überwacht die konfigurierten Verzeichnisse.",
+            ntfy.priority_success,
+        ) {
+            warn!("ntfy-Worker-Startmeldung fehlgeschlagen: {err:#}");
+        }
+    }
+
+    pub fn send_processing_started(&self, release: &Path) {
+        let ntfy = &self.config.ntfy;
+
+        if !self.enabled() || !ntfy.notify_on_processing_start {
+            return;
+        }
+
+        let message = format!(
+            "Verarbeitung gestartet:
+{}",
+            release.display()
+        );
+
+        if let Err(err) = self.send_ntfy(
+            NotificationEvent::ProcessingStarted,
+            &message,
+            ntfy.priority_success,
+        ) {
+            warn!("ntfy-Startmeldung fehlgeschlagen: {err:#}");
+        }
     }
 
     pub fn send_success(&self, release: &Path) {
@@ -199,11 +243,39 @@ mod tests {
             token: "secret-token".to_string(),
             priority_success: 3,
             priority_error: 5,
+            notify_on_worker_start: false,
+            notify_on_processing_start: false,
             notify_on_success: true,
             notify_on_error: true,
             notify_on_every_error: false,
             notify_after_attempts: 3,
         }
+    }
+
+    #[test]
+    fn worker_started_payload_uses_worker_metadata() {
+        let payload = build_payload(
+            &ntfy_config(),
+            NotificationEvent::WorkerStarted,
+            "gestartet",
+            3,
+        );
+
+        assert_eq!(payload["title"], "XDCC Extractor: Worker gestartet");
+        assert_eq!(payload["tags"][0], "rocket");
+    }
+
+    #[test]
+    fn processing_started_payload_uses_processing_metadata() {
+        let payload = build_payload(
+            &ntfy_config(),
+            NotificationEvent::ProcessingStarted,
+            "gestartet",
+            3,
+        );
+
+        assert_eq!(payload["title"], "XDCC Extractor: Verarbeitung gestartet");
+        assert_eq!(payload["tags"][0], "package");
     }
 
     #[test]
@@ -216,7 +288,7 @@ mod tests {
         );
 
         assert_eq!(payload["topic"], "xdcc-extractor");
-        assert_eq!(payload["title"], "XDCC Extractor: Erfolg");
+        assert_eq!(payload["title"], "XDCC Extractor: Verarbeitung erfolgreich");
         assert_eq!(payload["message"], "fertig");
         assert_eq!(payload["priority"], 3);
         assert_eq!(payload["tags"][0], "white_check_mark");
@@ -231,7 +303,10 @@ mod tests {
             5,
         );
 
-        assert_eq!(payload["title"], "XDCC Extractor: Fehler");
+        assert_eq!(
+            payload["title"],
+            "XDCC Extractor: Verarbeitung fehlgeschlagen"
+        );
         assert_eq!(payload["priority"], 5);
         assert_eq!(payload["tags"][0], "warning");
     }

@@ -146,6 +146,7 @@ fn main() -> anyhow::Result<()> {
         notifications.enabled(),
         notifications.provider()
     );
+    notifications.send_worker_started();
     web::start(config.clone(), config_path.clone())?;
 
     let (tx, rx) = channel();
@@ -501,6 +502,7 @@ fn process_next_job(
     };
 
     info!("Starte Job: {}", job.display());
+    notifications.send_processing_started(&job);
 
     match extractor::process_release(&job, output_base, delete_archives, keep_failed, passwords) {
         Ok(()) => {

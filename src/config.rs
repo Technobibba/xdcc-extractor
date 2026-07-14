@@ -155,6 +155,12 @@ pub struct NtfyConfig {
     #[serde(default = "default_ntfy_priority_error")]
     pub priority_error: u8,
 
+    #[serde(default)]
+    pub notify_on_worker_start: bool,
+
+    #[serde(default)]
+    pub notify_on_processing_start: bool,
+
     #[serde(default = "default_notify_on_success")]
     pub notify_on_success: bool,
 
@@ -275,6 +281,11 @@ impl std::fmt::Debug for NtfyConfig {
             .field("token", &token_display)
             .field("priority_success", &self.priority_success)
             .field("priority_error", &self.priority_error)
+            .field("notify_on_worker_start", &self.notify_on_worker_start)
+            .field(
+                "notify_on_processing_start",
+                &self.notify_on_processing_start,
+            )
             .field("notify_on_success", &self.notify_on_success)
             .field("notify_on_error", &self.notify_on_error)
             .field("notify_on_every_error", &self.notify_on_every_error)
@@ -291,6 +302,8 @@ impl Default for NtfyConfig {
             token: String::new(),
             priority_success: default_ntfy_priority_success(),
             priority_error: default_ntfy_priority_error(),
+            notify_on_worker_start: false,
+            notify_on_processing_start: false,
             notify_on_success: default_notify_on_success(),
             notify_on_error: default_notify_on_error(),
             notify_on_every_error: false,
@@ -722,6 +735,8 @@ mod debug_redaction_tests {
             token: "tk_super-secret-token".to_string(),
             priority_success: 3,
             priority_error: 5,
+            notify_on_worker_start: false,
+            notify_on_processing_start: false,
             notify_on_success: true,
             notify_on_error: true,
             notify_on_every_error: false,

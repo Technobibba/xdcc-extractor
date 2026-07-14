@@ -95,6 +95,8 @@ pub fn run_process(config_path: &str, config: &Config, release: &Path) -> Result
     println!("  passwords: {}", passwords.len());
     println!();
 
+    notifications.send_processing_started(release);
+
     let result = extractor::process_release(
         release,
         Path::new(&config.output.directory),
