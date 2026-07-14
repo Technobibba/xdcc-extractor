@@ -148,9 +148,11 @@ pub fn settings_edit_page_html(
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
     <a class="button" href="/diagnostics">Diagnose</a>
+    <button id="restart-worker" class="button" type="button">Worker neu starten</button>
   </div>
 
   {message_html}
+  <div id="restart-status" class="restart-status" role="status" aria-live="polite"></div>
 
   <form method="post" action="/settings/edit">
     <section class="card">
@@ -198,7 +200,7 @@ pub fn settings_edit_page_html(
           name="allow_root_archives"
           {allow_root_archives}
         >
-        Root-Archive erlauben
+        Archive im Hauptverzeichnis erlauben
       </label>
     </section>
 
@@ -206,7 +208,24 @@ pub fn settings_edit_page_html(
       <h2>Entpacken</h2>
       <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
       <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
-      <div class="small">Passwortdatei und Passwortlisten-Inhalt werden hier nicht bearbeitet.</div>
+
+      <div class="settings-group">
+        <h3>Passwortliste verwalten</h3>
+        <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird eine Sicherung unter <code>/state/password-backups</code> erstellt.</div>
+
+        <label for="password_add">Passwort hinzufügen</label>
+        <input id="password_add" name="password" type="password" value="" autocomplete="new-password">
+        <div class="actions">
+          <button class="button" type="submit" formaction="/settings/passwords/add" formmethod="post">Passwort hinzufügen</button>
+        </div>
+
+        <label for="passwords_replace">Gesamte Passwortliste ersetzen</label>
+        <textarea id="passwords_replace" name="passwords" placeholder="Ein Passwort pro Zeile"></textarea>
+        <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich bestätige, dass die bisherige Passwortliste ersetzt wird</label>
+        <div class="actions">
+          <button class="button danger" type="submit" formaction="/settings/passwords/replace" formmethod="post">Passwortliste ersetzen</button>
+        </div>
+      </div>
     </section>
 
     <section class="card">
@@ -225,25 +244,33 @@ pub fn settings_edit_page_html(
     </section>
 
     <section class="card">
-      <h2>ntfy</h2>
-      <label class="check"><input type="checkbox" name="notifications_enabled" {notifications_enabled}> Benachrichtigungen aktiv</label>
-      <div class="grid">
-        <div class="field full">
-          <label for="ntfy_server">ntfy-Server neu setzen</label>
-          <input id="ntfy_server" name="ntfy_server" type="url" value="" placeholder="Leer lassen = bestehenden Server behalten" autocomplete="off">
-        </div>
-        <div class="field full">
-          <label for="ntfy_topic">ntfy-Topic neu setzen</label>
-          <input id="ntfy_topic" name="ntfy_topic" type="text" value="" placeholder="Leer lassen = bestehendes Topic behalten" autocomplete="off">
-        </div>
-        <div class="field full">
-          <label for="ntfy_token">ntfy-Token neu setzen</label>
-          <input id="ntfy_token" name="ntfy_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
+      <h2>Benachrichtigungen</h2>
+      <label class="check"><input type="checkbox" name="notifications_enabled" {notifications_enabled}> ntfy-Benachrichtigungen aktivieren</label>
+
+      <div class="settings-group">
+        <h3>Verbindung</h3>
+        <div class="grid">
+          <div class="field full">
+            <label for="ntfy_server">ntfy-Server-URL</label>
+            <input id="ntfy_server" name="ntfy_server" type="url" value="" placeholder="https://ntfy.example.org" autocomplete="url" spellcheck="false">
+            <div class="small">URL des ntfy-Servers. Leer lassen, um den gespeicherten Wert beizubehalten.</div>
+          </div>
+          <div class="field full">
+            <label for="ntfy_topic">Thema (Topic)</label>
+            <input id="ntfy_topic" name="ntfy_topic" type="text" value="" placeholder="homelab-downloads" autocomplete="off" spellcheck="false">
+            <div class="small">Thema, an das der XDCC Extractor seine Benachrichtigungen sendet.</div>
+          </div>
+          <div class="field full">
+            <label for="ntfy_token">Zugriffstoken</label>
+            <input id="ntfy_token" name="ntfy_token" type="text" value="" placeholder="tk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="new-password" spellcheck="false">
+            <div class="small">Ein neu eingegebener Zugriffstoken ist zur Kontrolle sichtbar. Leer lassen, um den gespeicherten Token beizubehalten.</div>
+          </div>
         </div>
       </div>
-      <div class="small">Server, Topic und Token werden aus Sicherheitsgründen nicht angezeigt. Leere Felder behalten die bisherigen Werte.</div>
 
-      <div class="grid ntfy-priority-grid">
+      <div class="settings-group">
+        <h3>Prioritäten</h3>
+        <div class="grid ntfy-priority-grid">
         <div>
           <label for="ntfy_priority_success">Priorität bei Erfolg</label>
           <input id="ntfy_priority_success" name="ntfy_priority_success" type="number" min="1" max="5" value="{ntfy_priority_success}">
@@ -256,27 +283,28 @@ pub fn settings_edit_page_html(
           <label for="ntfy_notify_after_attempts">Fehler melden nach Versuchen</label>
           <input id="ntfy_notify_after_attempts" name="ntfy_notify_after_attempts" type="number" min="1" value="{ntfy_notify_after_attempts}">
         </div>
+        </div>
       </div>
-      <h3>Ereignisse</h3>
+
+      <div class="settings-group">
+        <h3>Ereignisse</h3>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_worker_start" {ntfy_notify_on_worker_start}> Worker-Start melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_processing_start" {ntfy_notify_on_processing_start}> Beginn einer Verarbeitung melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_success" {ntfy_notify_on_success}> Erfolgreiche Verarbeitung melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_error" {ntfy_notify_on_error}> Fehler melden</label>
       <label class="check"><input type="checkbox" name="ntfy_notify_on_every_error" {ntfy_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Server, Topic und Token werden aus Sicherheitsgründen nicht angezeigt. Diese Werte können hier neu gesetzt werden.</div>
+      <div class="small">Server-URL, Thema und Zugriffstoken können hier geändert werden.</div>
     </section>
     <section class="card">
       <h2>ntfy testen</h2>
       <div class="small">Der Test verwendet die zuletzt gespeicherte Konfiguration. Speichere Änderungen zuerst und starte anschließend den Test.</div>
-      <button type="submit" formaction="/settings/notifications/test" formmethod="post" style="margin-top: 16px;">Testnachricht senden</button>
+      <button type="submit" formaction="/settings/notifications/test" formmethod="post" style="margin-top: 16px;">ntfy-Verbindung testen</button>
     </section>
 
     <div class="actions">
       <button class="button" type="submit">Änderungen speichern</button>
-      <button id="restart-worker" class="button" type="button">Worker neu starten</button>
       <a class="button" href="/settings">Abbrechen</a>
     </div>
-    <div id="restart-status" class="restart-status" role="status" aria-live="polite"></div>
   </form>
 
 
@@ -286,28 +314,6 @@ pub fn settings_edit_page_html(
     <form method="post" action="/settings/history/reset">
       <label class="check"><input type="checkbox" name="confirm" value="RESET"> Ich bestätige, dass der Verlauf zurückgesetzt wird</label>
       <button class="button danger" type="submit">Verlauf zurücksetzen</button>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2>Passwortliste verwalten</h2>
-    <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird eine Sicherung unter <code>/state/password-backups</code> erstellt.</div>
-
-    <form method="post" action="/settings/passwords/add">
-      <label for="password_add">Passwort hinzufügen</label>
-      <input id="password_add" name="password" type="password" value="" autocomplete="new-password">
-      <div class="actions">
-        <button class="button" type="submit">Passwort hinzufügen</button>
-      </div>
-    </form>
-
-    <form method="post" action="/settings/passwords/replace">
-      <label for="passwords_replace">Gesamte Passwortliste ersetzen</label>
-      <textarea id="passwords_replace" name="passwords" placeholder="Ein Passwort pro Zeile"></textarea>
-      <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich bestätige, dass die bisherige Passwortliste ersetzt wird</label>
-      <div class="actions">
-        <button class="button danger" type="submit">Passwortliste ersetzen</button>
-      </div>
     </form>
   </section>
 
@@ -530,14 +536,14 @@ pub fn settings_page_html(config: &Config) -> String {
         </div>
       </div>
       <div class="row"><div class="key">Wartezeit bis Verarbeitung</div><div class="value">{stable_after}s</div></div>
-      <div class="row"><div class="key">Root-Archive erlauben</div><div class="value">{allow_root_archives}</div></div>
+      <div class="row"><div class="key">Archive im Hauptverzeichnis erlauben</div><div class="value">{allow_root_archives}</div></div>
     </section>
 
     <section class="card">
       <h2>Entpacken</h2>
       <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
       <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
-      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt bleibt verborgen</span></div></div>
+      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured}</div></div>
       <div class="row"><div class="key">Pfad zur Passwortliste</div><div class="value"><code>{password_file}</code></div></div>
     </section>
 
@@ -558,7 +564,7 @@ pub fn settings_page_html(config: &Config) -> String {
       <h2>ntfy</h2>
       <div class="row"><div class="key">Benachrichtigungen aktiv</div><div class="value">{notifications_enabled}</div></div>
       <div class="row"><div class="key">ntfy-Server konfiguriert</div><div class="value">{ntfy_server_configured}</div></div>
-      <div class="row"><div class="key">Topic konfiguriert</div><div class="value">{ntfy_topic_configured}</div></div>
+      <div class="row"><div class="key">Thema (Topic) konfiguriert</div><div class="value">{ntfy_topic_configured}</div></div>
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
@@ -576,11 +582,6 @@ pub fn settings_page_html(config: &Config) -> String {
       <div class="row"><div class="key">Adresse / Port</div><div class="value"><code>{web_bind}</code></div></div>
     </section>
 
-    <section class="card wide">
-      <h2>Vertrauliche Daten</h2>
-      <div class="row"><div class="key">ntfy Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
-      <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt bleibt verborgen</span></div></div>
-    </section>
   </div>
 
   <footer>
@@ -688,12 +689,14 @@ pub fn dashboard_page_html(config: &Config) -> String {
     <section class="card">
       <h2>ntfy</h2>
       <div class="value">{ntfy_badge}</div>
-      <div class="small">Token wird nicht angezeigt</div>
     </section>
 
     <section class="card">
       <h2>Verlauf</h2>
-      <div class="value">{done} erledigt / {failed} fehlgeschlagen</div>
+      <div class="value history-counts">
+        <div>{done} erledigt</div>
+        <div>{failed} fehlgeschlagen</div>
+      </div>
     </section>
 
     <section class="card">
@@ -1249,7 +1252,7 @@ pub fn diagnostics_page_html(config: &Config) -> String {
       </div>
 
       <div class="row">
-        <div class="key">Topic konfiguriert</div>
+        <div class="key">Thema (Topic) konfiguriert</div>
         <div class="value">{ntfy_topic_status}</div>
       </div>
 
@@ -1258,12 +1261,6 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         <div class="value">{ntfy_token_status}</div>
       </div>
 
-      <div class="row">
-        <div class="key">Token</div>
-        <div class="value">
-          <span class="badge muted">nicht sichtbar</span>
-        </div>
-      </div>
     </section>
 
     <section class="card wide">

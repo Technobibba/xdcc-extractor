@@ -205,6 +205,7 @@ label {
 
 input[type="number"],
 input[type="text"],
+input[type="url"],
 input[type="password"],
 textarea {
   width: 100%;
@@ -222,6 +223,29 @@ textarea {
 
 .field.full {
   grid-column: 1 / -1;
+}
+
+.settings-group {
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+.settings-group + .settings-group {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-group h3 {
+  margin: 0 0 14px;
+}
+
+.settings-group .field .small {
+  margin-top: 7px;
+  line-height: 1.45;
+}
+
+.connection-test .button {
+  margin-top: 16px;
 }
 
 .check {

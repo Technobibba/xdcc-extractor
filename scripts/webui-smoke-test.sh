@@ -262,4 +262,21 @@ check_page \
     "/settings/edit" \
     "Ein absoluter Container-Pfad pro Zeile"
 
+
+echo
+echo "== ntfy RC1-Feinschliff =="
+check_page "/settings/edit" "ntfy-Server-URL"
+check_page "/settings/edit" "placeholder=\"https://ntfy.example.org\""
+check_page "/settings/edit" "placeholder=\"homelab-downloads\""
+check_page "/settings/edit" "Zugriffstoken"
+check_page "/settings/edit" "ntfy-Verbindung testen"
+check_page "/settings/edit" "Ein neu eingegebener Zugriffstoken ist zur Kontrolle sichtbar."
+check_page "/assets/settings-edit.css" 'input[type="url"]'
+check_page "/settings/edit" "Thema (Topic)"
+check_page "/settings/edit" "Archive im Hauptverzeichnis erlauben"
+check_page "/settings/edit" "Passwortliste verwalten"
+check_page "/settings/edit" "Worker neu starten"
+check_page "/settings" "Thema (Topic) konfiguriert"
+check_page "/diagnostics" "Thema (Topic) konfiguriert"
+
 echo "Alle WebUI-Tests erfolgreich."
