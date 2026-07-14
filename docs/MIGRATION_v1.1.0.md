@@ -25,7 +25,7 @@ provider="ntfy"
 [notifications.ntfy]
 server="https://ntfy.example.org"
 topic="homelab-downloads"
-token="tk_REPLACE_ME"
+token=""
 priority_success=3
 priority_error=5
 notify_on_success=true

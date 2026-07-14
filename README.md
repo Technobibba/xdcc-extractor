@@ -15,14 +15,14 @@ Der Worker überwacht einen oder mehrere Download-Ordner, erkennt fertige Releas
 - Wiederholungslogik bei Fehlern
 - Verlauf für erfolgreiche und fehlgeschlagene Releases
 - Bereinigung nach erfolgreicher Verarbeitung
-- Gotify-Benachrichtigungen
+- ntfy-Benachrichtigungen
 - Geschützte WebUI mit Basic Auth
 - Dashboard mit Release-Übersicht und manuellen Aktionen
 - Read-only Einstellungen und separater Bearbeiten-Bereich
 - Überwachte Ordner direkt über die WebUI hinzufügen, bearbeiten und entfernen
 - History-/Verlaufs-Reset mit automatischer Sicherung
 - Passwortlisten-Verwaltung mit automatischen Sicherungen
-- Diagnose-Seite für Pfade, Speicherplatz, Verlauf, Gotify und Passwortliste
+- Diagnose-Seite für Pfade, Speicherplatz, Verlauf, ntfy und Passwortliste
 - Übersicht vorhandener Config-, Verlaufs- und Passwortlisten-Sicherungen
 - Logs und geschützte JSON-APIs
 - Docker-Healthcheck
@@ -69,7 +69,7 @@ enabled=true
 bind="0.0.0.0:8099"
 ~~~
 
-Die produktive `config.docker.toml` kann private Pfade, Gotify URL und Token enthalten und darf nicht committed werden.
+Die produktive `config.docker.toml` kann private Pfade, ntfy-Server, Topic und Token enthalten und darf nicht committed werden.
 
 ### Mehrere überwachte Ordner
 
@@ -197,7 +197,7 @@ Funktionen:
 - Laufende Logs anzeigen
 - Sichere Einstellungen bearbeiten
 - Einen oder mehrere überwachte Ordner verwalten
-- Gotify-URL und Token neu setzen, ohne bestehende Werte anzuzeigen
+- ntfy-Server, Topic und Token sicher über die WebUI konfigurieren
 - Verlauf mit vorheriger Sicherung zurücksetzen
 - Einzelne Passwörter ergänzen
 - Passwortliste vollständig ersetzen
@@ -207,7 +207,7 @@ Funktionen:
 - Worker direkt über die WebUI neu starten
 - Dashboard automatisch alle 30 Sekunden aktualisieren
 
-Die Diagnose-Seite zeigt keine Passwortinhalte, Gotify-Tokens oder anderen vertraulichen Inhalte.
+Die Diagnose-Seite zeigt keine Passwortinhalte, ntfy-Tokens oder andere vertrauliche Inhalte.
 
 ## APIs
 
@@ -271,8 +271,8 @@ target/
 
 Die WebUI zeigt folgende Werte nicht an:
 
-- Gotify Token
-- Gotify URL
+- ntfy Token
+- ntfy Server-URL
 - WebUI Passwort
 - Inhalt der Passwortliste
 

@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.1.0 - Unreleased
+
+### Added
+- ntfy als neuer Benachrichtigungsanbieter
+- Konfiguration von Server, Topic, Token und Prioritäten über die WebUI
+- Testnachricht direkt aus den Benachrichtigungseinstellungen
+- Optionale Meldungen für Worker-Start und Verarbeitungsbeginn
+- Ereignisabstraktion für Worker-, Verarbeitungs-, Erfolgs-, Fehler- und Testmeldungen
+
+### Changed
+- Benachrichtigungssystem von Gotify auf ntfy umgestellt
+- Status-, Diagnose- und Einstellungsansichten auf ntfy aktualisiert
+- ntfy-Prioritäten werden im Bereich 1 bis 5 validiert
+- Beispielkonfigurationen und öffentliche Dokumentation auf ntfy aktualisiert
+
+### Security
+- ntfy-Tokens werden weder in der WebUI noch in Debug-Ausgaben angezeigt
+- Leere Tokens bleiben für öffentliche ntfy-Topics zulässig
+- Konfigurationsänderungen erstellen weiterhin automatische Sicherungen
+
+### Removed
+- Veraltete Gotify-Konfiguration und Gotify-spezifische Statusausgabe
+
 ## v1.0.0 - 2026-07-11
 
 ### Added

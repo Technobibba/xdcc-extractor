@@ -131,11 +131,6 @@ pub struct NotificationConfig {
 
     #[serde(default)]
     pub ntfy: NtfyConfig,
-
-    // Legacy v1.0.x configuration. Kept during the staged migration so the
-    // application remains buildable and existing installations keep parsing.
-    #[serde(default)]
-    pub gotify: GotifyConfig,
 }
 
 #[derive(Deserialize, Clone)]
@@ -160,36 +155,6 @@ pub struct NtfyConfig {
 
     #[serde(default)]
     pub notify_on_processing_start: bool,
-
-    #[serde(default = "default_notify_on_success")]
-    pub notify_on_success: bool,
-
-    #[serde(default = "default_notify_on_error")]
-    pub notify_on_error: bool,
-
-    #[serde(default)]
-    pub notify_on_every_error: bool,
-
-    #[serde(default = "default_notify_after_attempts")]
-    pub notify_after_attempts: u64,
-}
-
-#[derive(Deserialize, Clone)]
-pub struct GotifyConfig {
-    #[serde(default)]
-    pub enabled: bool,
-
-    #[serde(default)]
-    pub url: String,
-
-    #[serde(default)]
-    pub token: String,
-
-    #[serde(default = "default_gotify_priority_success")]
-    pub priority_success: i32,
-
-    #[serde(default = "default_gotify_priority_error")]
-    pub priority_error: i32,
 
     #[serde(default = "default_notify_on_success")]
     pub notify_on_success: bool,
@@ -262,7 +227,6 @@ impl Default for NotificationConfig {
             enabled: false,
             provider: default_notification_provider(),
             ntfy: NtfyConfig::default(),
-            gotify: GotifyConfig::default(),
         }
     }
 }
@@ -304,44 +268,6 @@ impl Default for NtfyConfig {
             priority_error: default_ntfy_priority_error(),
             notify_on_worker_start: false,
             notify_on_processing_start: false,
-            notify_on_success: default_notify_on_success(),
-            notify_on_error: default_notify_on_error(),
-            notify_on_every_error: false,
-            notify_after_attempts: default_notify_after_attempts(),
-        }
-    }
-}
-
-impl std::fmt::Debug for GotifyConfig {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let token_display = if self.token.trim().is_empty() {
-            "<empty>"
-        } else {
-            "<redacted>"
-        };
-
-        f.debug_struct("GotifyConfig")
-            .field("enabled", &self.enabled)
-            .field("url", &self.url)
-            .field("token", &token_display)
-            .field("priority_success", &self.priority_success)
-            .field("priority_error", &self.priority_error)
-            .field("notify_on_success", &self.notify_on_success)
-            .field("notify_on_error", &self.notify_on_error)
-            .field("notify_on_every_error", &self.notify_on_every_error)
-            .field("notify_after_attempts", &self.notify_after_attempts)
-            .finish()
-    }
-}
-
-impl Default for GotifyConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            url: String::new(),
-            token: String::new(),
-            priority_success: default_gotify_priority_success(),
-            priority_error: default_gotify_priority_error(),
             notify_on_success: default_notify_on_success(),
             notify_on_error: default_notify_on_error(),
             notify_on_every_error: false,
@@ -439,16 +365,6 @@ fn validate_config(config: &Config) -> Result<()> {
         }
     }
 
-    if config.notifications.gotify.enabled {
-        if config.notifications.gotify.url.trim().is_empty() {
-            anyhow::bail!("Config ungültig: Gotify ist aktiviert, aber url ist leer");
-        }
-
-        if config.notifications.gotify.token.trim().is_empty() {
-            anyhow::bail!("Config ungültig: Gotify ist aktiviert, aber token ist leer");
-        }
-    }
-
     Ok(())
 }
 
@@ -490,14 +406,6 @@ fn default_ntfy_priority_success() -> u8 {
 
 fn default_ntfy_priority_error() -> u8 {
     5
-}
-
-fn default_gotify_priority_success() -> i32 {
-    3
-}
-
-fn default_gotify_priority_error() -> i32 {
-    8
 }
 
 fn default_notify_on_success() -> bool {
@@ -545,7 +453,6 @@ directory="/downloads"
         assert_eq!(config.retry.max_delay, 1800);
         assert!(!config.notifications.enabled);
         assert_eq!(config.notifications.provider, "ntfy");
-        assert!(!config.notifications.gotify.enabled);
     }
 
     #[test]
@@ -621,29 +528,6 @@ directory=""
 
         let err = load_config(&config_file).expect_err("should fail");
         assert!(format!("{:?}", err).contains("watch.directory"));
-    }
-
-    #[test]
-    fn rejects_enabled_gotify_without_token() {
-        let dir = tempdir().expect("tempdir");
-        let config_file = dir.path().join("config.toml");
-
-        fs::write(
-            &config_file,
-            r#"
-[watch]
-directory="/downloads"
-
-[notifications.gotify]
-enabled=true
-url="https://gotify.example.com"
-token=""
-"#,
-        )
-        .expect("write");
-
-        let err = load_config(&config_file).expect_err("should fail");
-        assert!(format!("{:?}", err).contains("token"));
     }
 
     #[test]
@@ -747,26 +631,6 @@ mod debug_redaction_tests {
 
         assert!(debug.contains("<redacted>"));
         assert!(!debug.contains("tk_super-secret-token"));
-    }
-
-    #[test]
-    fn gotify_debug_output_redacts_token() {
-        let gotify = GotifyConfig {
-            enabled: true,
-            url: "https://gotify.example.com".to_string(),
-            token: "super-secret-token".to_string(),
-            priority_success: 3,
-            priority_error: 8,
-            notify_on_success: true,
-            notify_on_error: true,
-            notify_on_every_error: false,
-            notify_after_attempts: 3,
-        };
-
-        let debug = format!("{:?}", gotify);
-
-        assert!(debug.contains("<redacted>"));
-        assert!(!debug.contains("super-secret-token"));
     }
 }
 

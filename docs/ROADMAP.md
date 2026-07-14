@@ -44,7 +44,7 @@ Stand: 2026-07-10
 - Logs
 - Read-only Einstellungen
 - Bearbeiten-Bereich
-- Gotify-Konfiguration
+- ntfy-Konfiguration
 - Verlaufs-Reset mit Sicherung
 - Passwortlisten-Verwaltung mit Sicherung
 - Diagnose-Seite
@@ -98,7 +98,7 @@ Stand: 2026-07-10
 - Worker-Laufzeit
 - Speicherplatzinformationen
 - detailliertere Ordnerprüfungen
-- optionale Gotify-Verbindungsprüfung
+- ntfy-Testnachricht und Verbindungsprüfung
 
 ### Erweiterungen
 
