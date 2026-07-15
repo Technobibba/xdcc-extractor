@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 pub fn settings_edit_page_html(
     config: &Config,
-    config_path: &Path,
+    _config_path: &Path,
     message: Option<&str>,
 ) -> String {
     let message_html = message
@@ -140,7 +140,6 @@ pub fn settings_edit_page_html(
 <body>
 <main>
   <h1>Einstellungen bearbeiten</h1>
-  <div class="sub">Konfigurationsdatei: <code>{config_path}</code></div>
 
     <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
@@ -385,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 </body>
 </html>"#,
-        config_path = escape_html(&config_path.display().to_string()),
         message_html = message_html,
         watch_directories = escape_html(&config.watch.resolved_directories().join("\n")),
         stable_after = config.watch.stable_after,
@@ -715,7 +713,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
     </div>
   </div>
 
-  <div class="grid dashboard-content-grid">
+  <div class="dashboard-content">
     <section class="card wide">
       <div class="card-head">
         <h2>Releases</h2>

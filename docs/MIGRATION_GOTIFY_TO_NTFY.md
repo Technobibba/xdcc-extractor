@@ -14,7 +14,7 @@ XDCC Extractor v1.1.0 verwendet ntfy anstelle von Gotify. Die alte Sektion `[not
 [notifications.gotify]
 enabled=true
 url="https://gotify.example.org"
-token="APP_TOKEN"
+token=""
 priority_success=3
 priority_error=8
 notify_on_success=true
@@ -33,7 +33,7 @@ provider="ntfy"
 [notifications.ntfy]
 server="https://ntfy.example.org"
 topic="xdcc-extractor"
-token="tk_OPTIONAL"
+token=""
 priority_success=3
 priority_error=5
 notify_on_worker_start=false

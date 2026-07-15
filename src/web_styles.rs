@@ -678,9 +678,12 @@ h1 {
   min-width: 0;
   height: 100%;
 }
+.dashboard-content {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+}
 
-.dashboard-content-grid {
-  grid-template-columns: 1fr;
 }
 
 .card {
