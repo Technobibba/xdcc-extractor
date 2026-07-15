@@ -7,7 +7,7 @@
 - Stabiler Docker-Worker für XDCC-/Botarr-Downloads
 - Archivprüfung, Entpacken, Cleanup und Passwortlisten
 - Verlauf für erfolgreiche und fehlgeschlagene Releases
-- Wiederholungslogik und Gotify-Benachrichtigungen
+- Wiederholungslogik und ntfy-Benachrichtigungen
 - Geschützte WebUI mit Dashboard, Einstellungen, Logs und Diagnose
 - WebUI-Wartung für Verlauf und Passwortliste
 - Automatische Config-, Verlaufs- und Passwortlisten-Sicherungen

@@ -60,31 +60,21 @@ scan_existing=false
 # Zielordner für entpackte Dateien.
 directory="/downloads/_extracted"
 
-[notifications.gotify]
-
-# Gotify-Benachrichtigungen aktivieren.
+[notifications]
 enabled=false
+provider="ntfy"
 
-# Beispiel:
-# url="https://gotify.example.com"
-url="https://gotify.example.local"
-
-# Gotify App Token.
-# Niemals echte Tokens ins Git committen.
+[notifications.ntfy]
+server="https://ntfy.example.org"
+topic="xdcc-extractor"
 token=""
-
-# Priorität für Erfolgsmeldungen.
 priority_success=3
-
-# Priorität für Fehlermeldungen.
-priority_error=8
-
+priority_error=5
+notify_on_worker_start=false
+notify_on_processing_start=false
 notify_on_success=true
-
 notify_on_error=true
-
 notify_on_every_error=false
-
 notify_after_attempts=3
 
 [web]

@@ -67,6 +67,10 @@ pub fn start(config: Config, config_path: impl Into<PathBuf>) -> Result<()> {
                 .route("/", get(index))
                 .route("/settings", get(settings))
                 .route("/settings/edit", get(settings_edit).post(update_settings))
+                .route(
+                    "/settings/notifications/test",
+                    post(settings_notifications_test),
+                )
                 .route("/settings/history/reset", post(settings_history_reset))
                 .route("/settings/passwords/add", post(settings_password_add))
                 .route(
@@ -225,6 +229,29 @@ async fn update_settings(
         }
     };
 
+    Html(crate::web_pages::settings_edit_page_html(
+        &config,
+        &state.config_path,
+        Some(&message),
+    ))
+}
+
+async fn settings_notifications_test(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let config = current_config_for_page(&state);
+    let notifications = crate::notifications::Notifications::new(config.notifications.clone());
+
+    let message = match notifications.send_test() {
+        Ok(()) => {
+            info!("ntfy-Testnachricht über WebUI gesendet");
+            "ntfy-Testnachricht wurde erfolgreich gesendet.".to_string()
+        }
+        Err(err) => {
+            warn!("ntfy-Testnachricht über WebUI fehlgeschlagen: {err:#}");
+            format!("ntfy-Testnachricht fehlgeschlagen: {err:#}")
+        }
+    };
+
+    let config = current_config_for_page(&state);
     Html(crate::web_pages::settings_edit_page_html(
         &config,
         &state.config_path,

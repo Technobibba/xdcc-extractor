@@ -126,19 +126,33 @@ pub fn print_status(config_path: &str) -> Result<()> {
         println!();
     }
 
-    println!("Gotify:");
-    let gotify_enabled =
-        toml_bool_nested(&config, "notifications", "gotify", "enabled").unwrap_or(false);
-    println!("  enabled: {}", gotify_enabled);
+    println!("ntfy:");
+    let notifications_enabled = toml_bool(&config, "notifications", "enabled").unwrap_or(false);
+    println!("  enabled: {}", notifications_enabled);
 
-    if let Some(url) = toml_string_nested(&config, "notifications", "gotify", "url") {
+    if let Some(server) = toml_string_nested(&config, "notifications", "ntfy", "server") {
         println!(
-            "  url: {}",
-            if url.trim().is_empty() { "<leer>" } else { url }
+            "  server: {}",
+            if server.trim().is_empty() {
+                "<leer>"
+            } else {
+                server
+            }
         );
     }
 
-    let token_set = toml_string_nested(&config, "notifications", "gotify", "token")
+    if let Some(topic) = toml_string_nested(&config, "notifications", "ntfy", "topic") {
+        println!(
+            "  topic: {}",
+            if topic.trim().is_empty() {
+                "<leer>"
+            } else {
+                topic
+            }
+        );
+    }
+
+    let token_set = toml_string_nested(&config, "notifications", "ntfy", "token")
         .map(|token| !token.trim().is_empty())
         .unwrap_or(false);
 
@@ -247,6 +261,10 @@ fn toml_string<'a>(config: &'a toml::Value, section: &str, key: &str) -> Option<
     config.get(section)?.get(key)?.as_str()
 }
 
+fn toml_bool(config: &toml::Value, section: &str, key: &str) -> Option<bool> {
+    config.get(section)?.get(key)?.as_bool()
+}
+
 fn toml_string_nested<'a>(
     config: &'a toml::Value,
     section: &str,
@@ -254,15 +272,6 @@ fn toml_string_nested<'a>(
     key: &str,
 ) -> Option<&'a str> {
     config.get(section)?.get(subsection)?.get(key)?.as_str()
-}
-
-fn toml_bool_nested(
-    config: &toml::Value,
-    section: &str,
-    subsection: &str,
-    key: &str,
-) -> Option<bool> {
-    config.get(section)?.get(subsection)?.get(key)?.as_bool()
 }
 
 fn first_error_line(content: &str) -> Option<String> {

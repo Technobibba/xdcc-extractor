@@ -136,6 +136,33 @@ echo "XDCC Extractor WebUI Smoke-Test"
 echo "Ziel: $BASE_URL"
 echo
 
+
+check_page_absent() {
+    local path="$1"
+    local unexpected="$2"
+    local response
+
+    printf "Prüfe %-32s " "$path"
+
+    response="$(
+        curl \
+            --fail \
+            --silent \
+            --show-error \
+            --user "${AUTH_USER}:${AUTH_PASSWORD}" \
+            "${BASE_URL}${path}"
+    )"
+
+    if grep -Fq "$unexpected" <<<"$response"; then
+        echo "FEHLER"
+        echo "Unerwarteter Inhalt wurde gefunden:"
+        echo "$unexpected"
+        exit 1
+    fi
+
+    echo "OK"
+}
+
 echo "== Öffentlicher Endpunkt =="
 check_public "/health"
 
@@ -261,5 +288,41 @@ check_page \
 check_page \
     "/settings/edit" \
     "Ein absoluter Container-Pfad pro Zeile"
+
+
+echo
+echo "== ntfy RC1-Feinschliff =="
+check_page "/settings/edit" "ntfy-Server-URL"
+check_page "/settings/edit" "placeholder=\"https://ntfy.example.org\""
+check_page "/settings/edit" "placeholder=\"homelab-downloads\""
+check_page "/settings/edit" "Zugriffstoken"
+check_page "/settings/edit" "ntfy-Verbindung testen"
+check_page "/settings/edit" "Ein neu eingegebener Zugriffstoken ist zur Kontrolle sichtbar."
+check_page "/assets/settings-edit.css" 'input[type="url"]'
+check_page "/settings/edit" "Thema (Topic)"
+check_page "/settings/edit" "Archive im Hauptverzeichnis erlauben"
+check_page "/settings/edit" "Passwortliste verwalten"
+check_page "/settings/edit" "Worker neu starten"
+check_page "/settings" "Thema (Topic) konfiguriert"
+check_page "/diagnostics" "Thema (Topic) konfiguriert"
+
+
+echo
+echo "== Dashboard-Karten RC1.2 =="
+check_page "/" "<h2>Worker &amp; System</h2>"
+check_page_absent "/" "<h2>Archive im Hauptordner</h2>"
+check_page_absent "/" "<h2>System</h2>"
+
+echo
+echo "== Dashboard-Raster v1.1.0 =="
+check_page "/" 'class="dashboard-overview"'
+check_page "/" 'class="card dashboard-primary-card"'
+check_page "/" 'class="dashboard-content"'
+check_page_absent "/" 'class="dashboard-compact-grid"'
+check_page "/assets/dashboard.css" ".dashboard-overview {"
+check_page "/assets/dashboard.css" ".dashboard-content {"
+check_page_absent "/assets/dashboard.css" ".dashboard-compact-grid {"
+check_page "/assets/dashboard.css" "grid-template-columns: minmax(280px, .95fr) repeat(2, minmax(0, 1fr));"
+check_page "/assets/dashboard.css" "grid-row: 1 / span 2;"
 
 echo "Alle WebUI-Tests erfolgreich."

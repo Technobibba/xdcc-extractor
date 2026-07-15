@@ -17,15 +17,18 @@ pub(crate) struct SettingsForm {
     pub(crate) retry_base_delay: u64,
     pub(crate) retry_max_delay: u64,
     pub(crate) startup_scan_existing: Option<String>,
-    pub(crate) gotify_enabled: Option<String>,
-    pub(crate) gotify_url: String,
-    pub(crate) gotify_token: String,
-    pub(crate) gotify_priority_success: i32,
-    pub(crate) gotify_priority_error: i32,
-    pub(crate) gotify_notify_on_success: Option<String>,
-    pub(crate) gotify_notify_on_error: Option<String>,
-    pub(crate) gotify_notify_on_every_error: Option<String>,
-    pub(crate) gotify_notify_after_attempts: u64,
+    pub(crate) notifications_enabled: Option<String>,
+    pub(crate) ntfy_server: String,
+    pub(crate) ntfy_topic: String,
+    pub(crate) ntfy_token: String,
+    pub(crate) ntfy_priority_success: u8,
+    pub(crate) ntfy_priority_error: u8,
+    pub(crate) ntfy_notify_on_worker_start: Option<String>,
+    pub(crate) ntfy_notify_on_processing_start: Option<String>,
+    pub(crate) ntfy_notify_on_success: Option<String>,
+    pub(crate) ntfy_notify_on_error: Option<String>,
+    pub(crate) ntfy_notify_on_every_error: Option<String>,
+    pub(crate) ntfy_notify_after_attempts: u64,
 }
 
 pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) -> Result<PathBuf> {
@@ -45,7 +48,7 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
         );
     }
 
-    if form.gotify_notify_after_attempts == 0 {
+    if form.ntfy_notify_after_attempts == 0 {
         anyhow::bail!("Die Anzahl der Versuche vor einer Fehlermeldung muss größer als 0 sein");
     }
 
@@ -118,63 +121,86 @@ pub(crate) fn apply_settings_to_config_file(path: &Path, form: &SettingsForm) ->
 
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications",
         "enabled",
-        toml_bool(form.gotify_enabled.is_some()),
+        toml_bool(form.notifications_enabled.is_some()),
     );
-    if !form.gotify_url.trim().is_empty() {
+    content = set_toml_value(content, "notifications", "provider", &toml_string("ntfy"));
+
+    if !form.ntfy_server.trim().is_empty() {
         content = set_toml_value(
             content,
-            "notifications.gotify",
-            "url",
-            &toml_string(form.gotify_url.trim()),
+            "notifications.ntfy",
+            "server",
+            &toml_string(form.ntfy_server.trim()),
         );
     }
 
-    if !form.gotify_token.trim().is_empty() {
+    if !form.ntfy_topic.trim().is_empty() {
         content = set_toml_value(
             content,
-            "notifications.gotify",
+            "notifications.ntfy",
+            "topic",
+            &toml_string(form.ntfy_topic.trim()),
+        );
+    }
+
+    if !form.ntfy_token.trim().is_empty() {
+        content = set_toml_value(
+            content,
+            "notifications.ntfy",
             "token",
-            &toml_string(form.gotify_token.trim()),
+            &toml_string(form.ntfy_token.trim()),
         );
     }
 
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
         "priority_success",
-        &form.gotify_priority_success.to_string(),
+        &form.ntfy_priority_success.to_string(),
     );
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
         "priority_error",
-        &form.gotify_priority_error.to_string(),
+        &form.ntfy_priority_error.to_string(),
     );
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
+        "notify_on_worker_start",
+        toml_bool(form.ntfy_notify_on_worker_start.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.ntfy",
+        "notify_on_processing_start",
+        toml_bool(form.ntfy_notify_on_processing_start.is_some()),
+    );
+    content = set_toml_value(
+        content,
+        "notifications.ntfy",
         "notify_on_success",
-        toml_bool(form.gotify_notify_on_success.is_some()),
+        toml_bool(form.ntfy_notify_on_success.is_some()),
     );
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
         "notify_on_error",
-        toml_bool(form.gotify_notify_on_error.is_some()),
+        toml_bool(form.ntfy_notify_on_error.is_some()),
     );
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
         "notify_on_every_error",
-        toml_bool(form.gotify_notify_on_every_error.is_some()),
+        toml_bool(form.ntfy_notify_on_every_error.is_some()),
     );
     content = set_toml_value(
         content,
-        "notifications.gotify",
+        "notifications.ntfy",
         "notify_after_attempts",
-        &form.gotify_notify_after_attempts.to_string(),
+        &form.ntfy_notify_after_attempts.to_string(),
     );
 
     let _parsed: Config = toml::from_str(&content)

@@ -141,7 +141,12 @@ fn main() -> anyhow::Result<()> {
     info!("Retry base_delay={}s", retry.base_delay);
     info!("Retry max_delay={}s", retry.max_delay);
     info!("Startup-Scan aktiviert: {}", startup_scan_existing);
-    info!("Gotify aktiviert: {}", notifications.gotify_enabled());
+    info!(
+        "Benachrichtigungen: aktiviert={}, Anbieter={}",
+        notifications.enabled(),
+        notifications.provider()
+    );
+    notifications.send_worker_started();
     web::start(config.clone(), config_path.clone())?;
 
     let (tx, rx) = channel();
@@ -497,6 +502,7 @@ fn process_next_job(
     };
 
     info!("Starte Job: {}", job.display());
+    notifications.send_processing_started(&job);
 
     match extractor::process_release(&job, output_base, delete_archives, keep_failed, passwords) {
         Ok(()) => {

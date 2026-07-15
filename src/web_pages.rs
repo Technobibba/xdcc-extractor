@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 pub fn settings_edit_page_html(
     config: &Config,
-    config_path: &Path,
+    _config_path: &Path,
     message: Option<&str>,
 ) -> String {
     let message_html = message
@@ -140,7 +140,6 @@ pub fn settings_edit_page_html(
 <body>
 <main>
   <h1>Einstellungen bearbeiten</h1>
-  <div class="sub">Konfigurationsdatei: <code>{config_path}</code></div>
 
     <div class="actions nav" style="margin-top: 22px; margin-bottom: 30px;">
     <a class="button" href="/">Dashboard</a>
@@ -148,9 +147,11 @@ pub fn settings_edit_page_html(
     <a class="button" href="/settings/edit">Bearbeiten</a>
     <a class="button" href="/logs">Logs</a>
     <a class="button" href="/diagnostics">Diagnose</a>
+    <button id="restart-worker" class="button" type="button">Worker neu starten</button>
   </div>
 
   {message_html}
+  <div id="restart-status" class="restart-status" role="status" aria-live="polite"></div>
 
   <form method="post" action="/settings/edit">
     <section class="card">
@@ -198,7 +199,7 @@ pub fn settings_edit_page_html(
           name="allow_root_archives"
           {allow_root_archives}
         >
-        Root-Archive erlauben
+        Archive im Hauptverzeichnis erlauben
       </label>
     </section>
 
@@ -206,7 +207,24 @@ pub fn settings_edit_page_html(
       <h2>Entpacken</h2>
       <label class="check"><input type="checkbox" name="delete_archives" {delete_archives}> Archive nach Erfolg löschen</label>
       <label class="check"><input type="checkbox" name="keep_failed" {keep_failed}> Fehlerhafte Archive behalten</label>
-      <div class="small">Passwortdatei und Passwortlisten-Inhalt werden hier nicht bearbeitet.</div>
+
+      <div class="settings-group">
+        <h3>Passwortliste verwalten</h3>
+        <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird eine Sicherung unter <code>/state/password-backups</code> erstellt.</div>
+
+        <label for="password_add">Passwort hinzufügen</label>
+        <input id="password_add" name="password" type="password" value="" autocomplete="new-password">
+        <div class="actions">
+          <button class="button" type="submit" formaction="/settings/passwords/add" formmethod="post">Passwort hinzufügen</button>
+        </div>
+
+        <label for="passwords_replace">Gesamte Passwortliste ersetzen</label>
+        <textarea id="passwords_replace" name="passwords" placeholder="Ein Passwort pro Zeile"></textarea>
+        <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich bestätige, dass die bisherige Passwortliste ersetzt wird</label>
+        <div class="actions">
+          <button class="button danger" type="submit" formaction="/settings/passwords/replace" formmethod="post">Passwortliste ersetzen</button>
+        </div>
+      </div>
     </section>
 
     <section class="card">
@@ -225,46 +243,67 @@ pub fn settings_edit_page_html(
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
-      <label class="check"><input type="checkbox" name="gotify_enabled" {gotify_enabled}> Gotify aktiv</label>
-      <div class="grid">
-        <div class="field full">
-          <label for="gotify_url">Gotify-URL neu setzen</label>
-          <input id="gotify_url" name="gotify_url" type="text" value="" placeholder="Leer lassen = bestehende URL behalten" autocomplete="off">
-        </div>
-        <div class="field full">
-          <label for="gotify_token">Gotify-Token neu setzen</label>
-          <input id="gotify_token" name="gotify_token" type="password" value="" placeholder="Leer lassen = bestehenden Token behalten" autocomplete="new-password">
-        </div>
-      </div>
-      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Leere Felder behalten die bisherigen Werte.</div>
+      <h2>Benachrichtigungen</h2>
+      <label class="check"><input type="checkbox" name="notifications_enabled" {notifications_enabled}> ntfy-Benachrichtigungen aktivieren</label>
 
-      <div class="grid gotify-priority-grid">
-        <div>
-          <label for="gotify_priority_success">Priorität bei Erfolg</label>
-          <input id="gotify_priority_success" name="gotify_priority_success" type="number" value="{gotify_priority_success}">
-        </div>
-        <div>
-          <label for="gotify_priority_error">Priorität bei Fehler</label>
-          <input id="gotify_priority_error" name="gotify_priority_error" type="number" value="{gotify_priority_error}">
-        </div>
-        <div>
-          <label for="gotify_notify_after_attempts">Fehler melden nach Versuchen</label>
-          <input id="gotify_notify_after_attempts" name="gotify_notify_after_attempts" type="number" min="1" value="{gotify_notify_after_attempts}">
+      <div class="settings-group">
+        <h3>Verbindung</h3>
+        <div class="grid">
+          <div class="field full">
+            <label for="ntfy_server">ntfy-Server-URL</label>
+            <input id="ntfy_server" name="ntfy_server" type="url" value="" placeholder="https://ntfy.example.org" autocomplete="url" spellcheck="false">
+            <div class="small">URL des ntfy-Servers. Leer lassen, um den gespeicherten Wert beizubehalten.</div>
+          </div>
+          <div class="field full">
+            <label for="ntfy_topic">Thema (Topic)</label>
+            <input id="ntfy_topic" name="ntfy_topic" type="text" value="" placeholder="homelab-downloads" autocomplete="off" spellcheck="false">
+            <div class="small">Thema, an das der XDCC Extractor seine Benachrichtigungen sendet.</div>
+          </div>
+          <div class="field full">
+            <label for="ntfy_token">Zugriffstoken</label>
+            <input id="ntfy_token" name="ntfy_token" type="text" value="" placeholder="tk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="new-password" spellcheck="false">
+            <div class="small">Ein neu eingegebener Zugriffstoken ist zur Kontrolle sichtbar. Leer lassen, um den gespeicherten Token beizubehalten.</div>
+          </div>
         </div>
       </div>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_success" {gotify_notify_on_success}> Erfolg melden</label>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_error" {gotify_notify_on_error}> Fehler melden</label>
-      <label class="check"><input type="checkbox" name="gotify_notify_on_every_error" {gotify_notify_on_every_error}> Jeden Fehler melden</label>
-      <div class="small">Gotify-URL und Token werden aus Sicherheitsgründen nicht angezeigt. Beide Werte können im Bereich „Bearbeiten“ neu gesetzt werden.</div>
+
+      <div class="settings-group">
+        <h3>Prioritäten</h3>
+        <div class="grid ntfy-priority-grid">
+        <div>
+          <label for="ntfy_priority_success">Priorität bei Erfolg</label>
+          <input id="ntfy_priority_success" name="ntfy_priority_success" type="number" min="1" max="5" value="{ntfy_priority_success}">
+        </div>
+        <div>
+          <label for="ntfy_priority_error">Priorität bei Fehler</label>
+          <input id="ntfy_priority_error" name="ntfy_priority_error" type="number" min="1" max="5" value="{ntfy_priority_error}">
+        </div>
+        <div>
+          <label for="ntfy_notify_after_attempts">Fehler melden nach Versuchen</label>
+          <input id="ntfy_notify_after_attempts" name="ntfy_notify_after_attempts" type="number" min="1" value="{ntfy_notify_after_attempts}">
+        </div>
+        </div>
+      </div>
+
+      <div class="settings-group">
+        <h3>Ereignisse</h3>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_worker_start" {ntfy_notify_on_worker_start}> Worker-Start melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_processing_start" {ntfy_notify_on_processing_start}> Beginn einer Verarbeitung melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_success" {ntfy_notify_on_success}> Erfolgreiche Verarbeitung melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_error" {ntfy_notify_on_error}> Fehler melden</label>
+      <label class="check"><input type="checkbox" name="ntfy_notify_on_every_error" {ntfy_notify_on_every_error}> Jeden Fehler melden</label>
+      <div class="small">Server-URL, Thema und Zugriffstoken können hier geändert werden.</div>
+    </section>
+    <section class="card">
+      <h2>ntfy testen</h2>
+      <div class="small">Der Test verwendet die zuletzt gespeicherte Konfiguration. Speichere Änderungen zuerst und starte anschließend den Test.</div>
+      <button type="submit" formaction="/settings/notifications/test" formmethod="post" style="margin-top: 16px;">ntfy-Verbindung testen</button>
     </section>
 
     <div class="actions">
       <button class="button" type="submit">Änderungen speichern</button>
-      <button id="restart-worker" class="button" type="button">Worker neu starten</button>
       <a class="button" href="/settings">Abbrechen</a>
     </div>
-    <div id="restart-status" class="restart-status" role="status" aria-live="polite"></div>
   </form>
 
 
@@ -274,28 +313,6 @@ pub fn settings_edit_page_html(
     <form method="post" action="/settings/history/reset">
       <label class="check"><input type="checkbox" name="confirm" value="RESET"> Ich bestätige, dass der Verlauf zurückgesetzt wird</label>
       <button class="button danger" type="submit">Verlauf zurücksetzen</button>
-    </form>
-  </section>
-
-  <section class="card">
-    <h2>Passwortliste verwalten</h2>
-    <div class="small">Passwörter werden nicht angezeigt. Vor Änderungen wird eine Sicherung unter <code>/state/password-backups</code> erstellt.</div>
-
-    <form method="post" action="/settings/passwords/add">
-      <label for="password_add">Passwort hinzufügen</label>
-      <input id="password_add" name="password" type="password" value="" autocomplete="new-password">
-      <div class="actions">
-        <button class="button" type="submit">Passwort hinzufügen</button>
-      </div>
-    </form>
-
-    <form method="post" action="/settings/passwords/replace">
-      <label for="passwords_replace">Gesamte Passwortliste ersetzen</label>
-      <textarea id="passwords_replace" name="passwords" placeholder="Ein Passwort pro Zeile"></textarea>
-      <label class="check"><input type="checkbox" name="confirm" value="REPLACE"> Ich bestätige, dass die bisherige Passwortliste ersetzt wird</label>
-      <div class="actions">
-        <button class="button danger" type="submit">Passwortliste ersetzen</button>
-      </div>
     </form>
   </section>
 
@@ -367,7 +384,6 @@ document.addEventListener('DOMContentLoaded', () => {{
 
 </body>
 </html>"#,
-        config_path = escape_html(&config_path.display().to_string()),
         message_html = message_html,
         watch_directories = escape_html(&config.watch.resolved_directories().join("\n")),
         stable_after = config.watch.stable_after,
@@ -377,18 +393,21 @@ document.addEventListener('DOMContentLoaded', () => {{
         retry_base_delay = config.retry.base_delay,
         retry_max_delay = config.retry.max_delay,
         startup_scan_existing = checked(config.startup.scan_existing),
-        gotify_enabled = checked(config.notifications.gotify.enabled),
-        gotify_priority_success = config.notifications.gotify.priority_success,
-        gotify_priority_error = config.notifications.gotify.priority_error,
-        gotify_notify_on_success = checked(config.notifications.gotify.notify_on_success),
-        gotify_notify_on_error = checked(config.notifications.gotify.notify_on_error),
-        gotify_notify_on_every_error = checked(config.notifications.gotify.notify_on_every_error),
-        gotify_notify_after_attempts = config.notifications.gotify.notify_after_attempts,
+        notifications_enabled = checked(config.notifications.enabled),
+        ntfy_priority_success = config.notifications.ntfy.priority_success,
+        ntfy_priority_error = config.notifications.ntfy.priority_error,
+        ntfy_notify_on_worker_start = checked(config.notifications.ntfy.notify_on_worker_start),
+        ntfy_notify_on_processing_start =
+            checked(config.notifications.ntfy.notify_on_processing_start),
+        ntfy_notify_on_success = checked(config.notifications.ntfy.notify_on_success),
+        ntfy_notify_on_error = checked(config.notifications.ntfy.notify_on_error),
+        ntfy_notify_on_every_error = checked(config.notifications.ntfy.notify_on_every_error),
+        ntfy_notify_after_attempts = config.notifications.ntfy.notify_after_attempts,
     )
 }
 
 pub fn settings_page_html(config: &Config) -> String {
-    let gotify_enabled = if config.notifications.gotify.enabled {
+    let notifications_enabled = if config.notifications.enabled {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -418,19 +437,31 @@ pub fn settings_page_html(config: &Config) -> String {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_success = if config.notifications.gotify.notify_on_success {
+    let notify_on_worker_start = if config.notifications.ntfy.notify_on_worker_start {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_error = if config.notifications.gotify.notify_on_error {
+    let notify_on_processing_start = if config.notifications.ntfy.notify_on_processing_start {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let notify_on_every_error = if config.notifications.gotify.notify_on_every_error {
+    let notify_on_success = if config.notifications.ntfy.notify_on_success {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_error = if config.notifications.ntfy.notify_on_error {
+        r#"<span class="badge ok">aktiv</span>"#
+    } else {
+        r#"<span class="badge muted">aus</span>"#
+    };
+
+    let notify_on_every_error = if config.notifications.ntfy.notify_on_every_error {
         r#"<span class="badge warn">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
@@ -442,13 +473,19 @@ pub fn settings_page_html(config: &Config) -> String {
         r#"<span class="badge muted">aus</span>"#
     };
 
-    let gotify_url_configured = if config.notifications.gotify.url.trim().is_empty() {
+    let ntfy_server_configured = if config.notifications.ntfy.server.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
         r#"<span class="badge ok">ja</span>"#
     };
 
-    let token_configured = if config.notifications.gotify.token.trim().is_empty() {
+    let ntfy_topic_configured = if config.notifications.ntfy.topic.trim().is_empty() {
+        r#"<span class="badge bad">nein</span>"#
+    } else {
+        r#"<span class="badge ok">ja</span>"#
+    };
+
+    let token_configured = if config.notifications.ntfy.token.trim().is_empty() {
         r#"<span class="badge bad">nein</span>"#
     } else {
         r#"<span class="badge ok">ja</span>"#
@@ -497,14 +534,14 @@ pub fn settings_page_html(config: &Config) -> String {
         </div>
       </div>
       <div class="row"><div class="key">Wartezeit bis Verarbeitung</div><div class="value">{stable_after}s</div></div>
-      <div class="row"><div class="key">Root-Archive erlauben</div><div class="value">{allow_root_archives}</div></div>
+      <div class="row"><div class="key">Archive im Hauptverzeichnis erlauben</div><div class="value">{allow_root_archives}</div></div>
     </section>
 
     <section class="card">
       <h2>Entpacken</h2>
       <div class="row"><div class="key">Archive nach Erfolg löschen</div><div class="value">{delete_archives}</div></div>
       <div class="row"><div class="key">Fehlerhafte Archive behalten</div><div class="value">{keep_failed}</div></div>
-      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured} <span class="key">Inhalt bleibt verborgen</span></div></div>
+      <div class="row"><div class="key">Passwortliste konfiguriert</div><div class="value">{password_file_configured}</div></div>
       <div class="row"><div class="key">Pfad zur Passwortliste</div><div class="value"><code>{password_file}</code></div></div>
     </section>
 
@@ -522,13 +559,16 @@ pub fn settings_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
-      <div class="row"><div class="key">Gotify aktiv</div><div class="value">{gotify_enabled}</div></div>
-      <div class="row"><div class="key">Gotify-URL konfiguriert</div><div class="value">{gotify_url_configured}</div></div>
+      <h2>ntfy</h2>
+      <div class="row"><div class="key">Benachrichtigungen aktiv</div><div class="value">{notifications_enabled}</div></div>
+      <div class="row"><div class="key">ntfy-Server konfiguriert</div><div class="value">{ntfy_server_configured}</div></div>
+      <div class="row"><div class="key">Thema (Topic) konfiguriert</div><div class="value">{ntfy_topic_configured}</div></div>
       <div class="row"><div class="key">Token konfiguriert</div><div class="value">{token_configured}</div></div>
       <div class="row"><div class="key">Priorität bei Erfolg</div><div class="value">{priority_success}</div></div>
       <div class="row"><div class="key">Priorität bei Fehler</div><div class="value">{priority_error}</div></div>
-      <div class="row"><div class="key">Erfolg melden</div><div class="value">{notify_on_success}</div></div>
+      <div class="row"><div class="key">Worker-Start melden</div><div class="value">{notify_on_worker_start}</div></div>
+      <div class="row"><div class="key">Verarbeitungsbeginn melden</div><div class="value">{notify_on_processing_start}</div></div>
+      <div class="row"><div class="key">Erfolgreiche Verarbeitung melden</div><div class="value">{notify_on_success}</div></div>
       <div class="row"><div class="key">Fehler melden</div><div class="value">{notify_on_error}</div></div>
       <div class="row"><div class="key">Jeden Fehler melden</div><div class="value">{notify_on_every_error}</div></div>
       <div class="row"><div class="key">Fehler melden nach Versuchen</div><div class="value">{notify_after_attempts}</div></div>
@@ -540,11 +580,6 @@ pub fn settings_page_html(config: &Config) -> String {
       <div class="row"><div class="key">Adresse / Port</div><div class="value"><code>{web_bind}</code></div></div>
     </section>
 
-    <section class="card wide">
-      <h2>Vertrauliche Daten</h2>
-      <div class="row"><div class="key">Gotify Token</div><div class="value"><span class="badge muted">nicht sichtbar</span></div></div>
-      <div class="row"><div class="key">Passwortliste</div><div class="value"><span class="badge muted">Inhalt bleibt verborgen</span></div></div>
-    </section>
   </div>
 
   <footer>
@@ -569,14 +604,18 @@ pub fn settings_page_html(config: &Config) -> String {
         base_delay = config.retry.base_delay,
         max_delay = config.retry.max_delay,
         startup_scan = startup_scan,
-        gotify_enabled = gotify_enabled,
+        notifications_enabled = notifications_enabled,
+        ntfy_server_configured = ntfy_server_configured,
+        ntfy_topic_configured = ntfy_topic_configured,
         token_configured = token_configured,
-        priority_success = config.notifications.gotify.priority_success,
-        priority_error = config.notifications.gotify.priority_error,
+        priority_success = config.notifications.ntfy.priority_success,
+        priority_error = config.notifications.ntfy.priority_error,
+        notify_on_worker_start = notify_on_worker_start,
+        notify_on_processing_start = notify_on_processing_start,
         notify_on_success = notify_on_success,
         notify_on_error = notify_on_error,
         notify_on_every_error = notify_on_every_error,
-        notify_after_attempts = config.notifications.gotify.notify_after_attempts,
+        notify_after_attempts = config.notifications.ntfy.notify_after_attempts,
         web_enabled = web_enabled,
         web_bind = escape_html(&config.web.bind),
     );
@@ -589,16 +628,10 @@ pub fn dashboard_page_html(config: &Config) -> String {
     let scan_html = scan_summary_html(config);
     let failures_html = failures_html(config);
 
-    let gotify_badge = if config.notifications.gotify.enabled {
+    let ntfy_badge = if config.notifications.enabled {
         r#"<span class="badge ok">aktiv</span>"#
     } else {
         r#"<span class="badge muted">aus</span>"#
-    };
-
-    let allow_root_archives_badge = if config.watch.allow_root_archives {
-        r#"<span class="badge ok">ja</span>"#
-    } else {
-        r#"<span class="badge muted">nein</span>"#
     };
 
     let html = format!(
@@ -638,51 +671,47 @@ pub fn dashboard_page_html(config: &Config) -> String {
     Automatische Aktualisierung: alle 30 Sekunden.
   </div>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Worker</h2>
+  <div class="dashboard-overview">
+    <section class="card dashboard-primary-card">
+      <h2>Worker &amp; System</h2>
       <div class="value">läuft</div>
       <div class="small">WebUI erreichbar</div>
-    </section>
-
-    <section class="card">
-      <h2>Gotify</h2>
-      <div class="value">{gotify_badge}</div>
-      <div class="small">Token wird nicht angezeigt</div>
-    </section>
-
-    <section class="card">
-      <h2>Verlauf</h2>
-      <div class="value">{done} erledigt / {failed} fehlgeschlagen</div>
-    </section>
-
-    <section class="card">
-      <h2>Überwachter Ordner</h2>
-      <div class="small">
-        <div class="watch-directory-list">
-          {watch_directory_rows}
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Ausgabeordner</h2>
-      <div class="small"><code>{output_dir}</code></div>
-    </section>
-
-    <section class="card">
-      <h2>Archive im Hauptordner</h2>
-      <div class="value">{allow_root_archives_badge}</div>
-      <div class="small">Direkte Downloads ohne Unterordner</div>
-    </section>
-
-    <section class="card">
-      <h2>System</h2>
-      <div class="value">bereit</div>
+      <div class="dashboard-card-divider"></div>
+      <div class="small dashboard-card-label">Systemstatus</div>
+      <div class="value dashboard-secondary-value">bereit</div>
       <div class="small">WebUI geschützt</div>
       <div class="small">Healthcheck aktiv</div>
     </section>
 
+    <section class="card">
+        <h2>ntfy</h2>
+        <div class="value">{ntfy_badge}</div>
+      </section>
+
+      <section class="card">
+        <h2>Überwachter Ordner</h2>
+        <div class="small">
+          <div class="watch-directory-list">
+            {watch_directory_rows}
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Verlauf</h2>
+        <div class="value history-counts">
+          <div>{done} erledigt</div>
+          <div>{failed} fehlgeschlagen</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Ausgabeordner</h2>
+        <div class="small"><code>{output_dir}</code></div>
+      </section>
+  </div>
+
+  <div class="dashboard-content">
     <section class="card wide">
       <div class="card-head">
         <h2>Releases</h2>
@@ -712,12 +741,11 @@ pub fn dashboard_page_html(config: &Config) -> String {
 </body>
 </html>"#,
         version = env!("CARGO_PKG_VERSION"),
-        gotify_badge = gotify_badge,
+        ntfy_badge = ntfy_badge,
         done = history.0,
         failed = history.1,
         watch_directory_rows = watch_directory_list_html(config),
         output_dir = escape_html(&config.output.directory),
-        allow_root_archives_badge = allow_root_archives_badge,
         scan_html = scan_html,
         failures_html = failures_html,
     );
@@ -892,13 +920,15 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         "—".to_string()
     };
 
-    let gotify_url_configured = !config.notifications.gotify.url.trim().is_empty();
+    let ntfy_server_configured = !config.notifications.ntfy.server.trim().is_empty();
 
-    let gotify_token_configured = !config.notifications.gotify.token.trim().is_empty();
+    let ntfy_token_configured = !config.notifications.ntfy.token.trim().is_empty();
 
-    let gotify_status = if !config.notifications.gotify.enabled {
+    let ntfy_topic_configured = !config.notifications.ntfy.topic.trim().is_empty();
+
+    let ntfy_status = if !config.notifications.enabled {
         r#"<span class="badge muted">aus</span>"#
-    } else if gotify_url_configured && gotify_token_configured {
+    } else if ntfy_server_configured && ntfy_topic_configured {
         r#"<span class="badge ok">bereit</span>"#
     } else {
         r#"<span class="badge bad">unvollständig</span>"#
@@ -1194,29 +1224,28 @@ pub fn diagnostics_page_html(config: &Config) -> String {
     </section>
 
     <section class="card">
-      <h2>Gotify</h2>
+      <h2>ntfy</h2>
 
       <div class="row">
         <div class="key">Status</div>
-        <div class="value">{gotify_status}</div>
+        <div class="value">{ntfy_status}</div>
       </div>
 
       <div class="row">
         <div class="key">URL konfiguriert</div>
-        <div class="value">{gotify_url_status}</div>
+        <div class="value">{ntfy_server_status}</div>
+      </div>
+
+      <div class="row">
+        <div class="key">Thema (Topic) konfiguriert</div>
+        <div class="value">{ntfy_topic_status}</div>
       </div>
 
       <div class="row">
         <div class="key">Token konfiguriert</div>
-        <div class="value">{gotify_token_status}</div>
+        <div class="value">{ntfy_token_status}</div>
       </div>
 
-      <div class="row">
-        <div class="key">Token</div>
-        <div class="value">
-          <span class="badge muted">nicht sichtbar</span>
-        </div>
-      </div>
     </section>
 
     <section class="card wide">
@@ -1256,9 +1285,10 @@ pub fn diagnostics_page_html(config: &Config) -> String {
         history_failed = history.1,
         password_status = password_status,
         password_path = password_path,
-        gotify_status = gotify_status,
-        gotify_url_status = yes_no_badge(gotify_url_configured),
-        gotify_token_status = yes_no_badge(gotify_token_configured),
+        ntfy_status = ntfy_status,
+        ntfy_server_status = yes_no_badge(ntfy_server_configured),
+        ntfy_topic_status = yes_no_badge(ntfy_topic_configured),
+        ntfy_token_status = yes_no_badge(ntfy_token_configured),
         disk_cards_html = disk_cards_html,
         backup_cards_html = backup_cards_html,
     )

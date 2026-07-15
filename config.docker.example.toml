@@ -32,13 +32,18 @@ scan_existing=false
 [output]
 directory="/downloads/_extracted"
 
-[notifications.gotify]
+[notifications]
 enabled=true
-url="https://gotify.example.local"
+provider="ntfy"
+
+[notifications.ntfy]
+server="https://ntfy.example.org"
+topic="xdcc-extractor"
 token=""
 priority_success=3
-priority_error=9
-
+priority_error=5
+notify_on_worker_start=false
+notify_on_processing_start=false
 notify_on_success=true
 notify_on_error=true
 notify_on_every_error=false

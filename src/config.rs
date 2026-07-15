@@ -124,25 +124,37 @@ pub struct WebConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct NotificationConfig {
     #[serde(default)]
-    pub gotify: GotifyConfig,
+    pub enabled: bool,
+
+    #[serde(default = "default_notification_provider")]
+    pub provider: String,
+
+    #[serde(default)]
+    pub ntfy: NtfyConfig,
 }
 
 #[derive(Deserialize, Clone)]
-pub struct GotifyConfig {
+pub struct NtfyConfig {
     #[serde(default)]
-    pub enabled: bool,
+    pub server: String,
 
     #[serde(default)]
-    pub url: String,
+    pub topic: String,
 
     #[serde(default)]
     pub token: String,
 
-    #[serde(default = "default_gotify_priority_success")]
-    pub priority_success: i32,
+    #[serde(default = "default_ntfy_priority_success")]
+    pub priority_success: u8,
 
-    #[serde(default = "default_gotify_priority_error")]
-    pub priority_error: i32,
+    #[serde(default = "default_ntfy_priority_error")]
+    pub priority_error: u8,
+
+    #[serde(default)]
+    pub notify_on_worker_start: bool,
+
+    #[serde(default)]
+    pub notify_on_processing_start: bool,
 
     #[serde(default = "default_notify_on_success")]
     pub notify_on_success: bool,
@@ -212,12 +224,14 @@ impl Default for WebConfig {
 impl Default for NotificationConfig {
     fn default() -> Self {
         Self {
-            gotify: GotifyConfig::default(),
+            enabled: false,
+            provider: default_notification_provider(),
+            ntfy: NtfyConfig::default(),
         }
     }
 }
 
-impl std::fmt::Debug for GotifyConfig {
+impl std::fmt::Debug for NtfyConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let token_display = if self.token.trim().is_empty() {
             "<empty>"
@@ -225,12 +239,17 @@ impl std::fmt::Debug for GotifyConfig {
             "<redacted>"
         };
 
-        f.debug_struct("GotifyConfig")
-            .field("enabled", &self.enabled)
-            .field("url", &self.url)
+        f.debug_struct("NtfyConfig")
+            .field("server", &self.server)
+            .field("topic", &self.topic)
             .field("token", &token_display)
             .field("priority_success", &self.priority_success)
             .field("priority_error", &self.priority_error)
+            .field("notify_on_worker_start", &self.notify_on_worker_start)
+            .field(
+                "notify_on_processing_start",
+                &self.notify_on_processing_start,
+            )
             .field("notify_on_success", &self.notify_on_success)
             .field("notify_on_error", &self.notify_on_error)
             .field("notify_on_every_error", &self.notify_on_every_error)
@@ -239,14 +258,16 @@ impl std::fmt::Debug for GotifyConfig {
     }
 }
 
-impl Default for GotifyConfig {
+impl Default for NtfyConfig {
     fn default() -> Self {
         Self {
-            enabled: false,
-            url: String::new(),
+            server: String::new(),
+            topic: String::new(),
             token: String::new(),
-            priority_success: default_gotify_priority_success(),
-            priority_error: default_gotify_priority_error(),
+            priority_success: default_ntfy_priority_success(),
+            priority_error: default_ntfy_priority_error(),
+            notify_on_worker_start: false,
+            notify_on_processing_start: false,
             notify_on_success: default_notify_on_success(),
             notify_on_error: default_notify_on_error(),
             notify_on_every_error: false,
@@ -296,13 +317,51 @@ fn validate_config(config: &Config) -> Result<()> {
         );
     }
 
-    if config.notifications.gotify.enabled {
-        if config.notifications.gotify.url.trim().is_empty() {
-            anyhow::bail!("Config ungültig: Gotify ist aktiviert, aber url ist leer");
+    if config.notifications.enabled {
+        if config.notifications.provider.trim() != "ntfy" {
+            anyhow::bail!("Config ungültig: notifications.provider muss für v1.1.0 'ntfy' sein");
         }
 
-        if config.notifications.gotify.token.trim().is_empty() {
-            anyhow::bail!("Config ungültig: Gotify ist aktiviert, aber token ist leer");
+        let ntfy = &config.notifications.ntfy;
+        let server = ntfy.server.trim();
+        let topic = ntfy.topic.trim();
+
+        if server.is_empty() {
+            anyhow::bail!("Config ungültig: ntfy ist aktiviert, aber server ist leer");
+        }
+
+        if !server.starts_with("http://") && !server.starts_with("https://") {
+            anyhow::bail!(
+                "Config ungültig: notifications.ntfy.server muss mit http:// oder https:// beginnen"
+            );
+        }
+
+        if topic.is_empty() {
+            anyhow::bail!("Config ungültig: ntfy ist aktiviert, aber topic ist leer");
+        }
+
+        if topic.chars().any(char::is_whitespace) || topic.contains(['?', '#']) {
+            anyhow::bail!(
+                "Config ungültig: notifications.ntfy.topic darf keine Leerzeichen, '?' oder '#' enthalten"
+            );
+        }
+
+        if !(1..=5).contains(&ntfy.priority_success) {
+            anyhow::bail!(
+                "Config ungültig: notifications.ntfy.priority_success muss zwischen 1 und 5 liegen"
+            );
+        }
+
+        if !(1..=5).contains(&ntfy.priority_error) {
+            anyhow::bail!(
+                "Config ungültig: notifications.ntfy.priority_error muss zwischen 1 und 5 liegen"
+            );
+        }
+
+        if ntfy.notify_after_attempts == 0 {
+            anyhow::bail!(
+                "Config ungültig: notifications.ntfy.notify_after_attempts muss mindestens 1 sein"
+            );
         }
     }
 
@@ -337,12 +396,16 @@ fn default_retry_max_delay() -> u64 {
     1800
 }
 
-fn default_gotify_priority_success() -> i32 {
+fn default_notification_provider() -> String {
+    "ntfy".to_string()
+}
+
+fn default_ntfy_priority_success() -> u8 {
     3
 }
 
-fn default_gotify_priority_error() -> i32 {
-    8
+fn default_ntfy_priority_error() -> u8 {
+    5
 }
 
 fn default_notify_on_success() -> bool {
@@ -388,7 +451,8 @@ directory="/downloads"
         assert_eq!(config.history.directory, "/state/history");
         assert_eq!(config.retry.base_delay, 60);
         assert_eq!(config.retry.max_delay, 1800);
-        assert!(!config.notifications.gotify.enabled);
+        assert!(!config.notifications.enabled);
+        assert_eq!(config.notifications.provider, "ntfy");
     }
 
     #[test]
@@ -467,7 +531,7 @@ directory=""
     }
 
     #[test]
-    fn rejects_enabled_gotify_without_token() {
+    fn accepts_enabled_ntfy_without_token() {
         let dir = tempdir().expect("tempdir");
         let config_file = dir.path().join("config.toml");
 
@@ -477,16 +541,47 @@ directory=""
 [watch]
 directory="/downloads"
 
-[notifications.gotify]
+[notifications]
 enabled=true
-url="https://gotify.example.com"
+provider="ntfy"
+
+[notifications.ntfy]
+server="https://ntfy.example.com"
+topic="xdcc-extractor"
 token=""
 "#,
         )
         .expect("write");
 
+        let config = load_config(&config_file).expect("load config");
+        assert!(config.notifications.enabled);
+        assert!(config.notifications.ntfy.token.is_empty());
+    }
+
+    #[test]
+    fn rejects_invalid_ntfy_topic() {
+        let dir = tempdir().expect("tempdir");
+        let config_file = dir.path().join("config.toml");
+
+        fs::write(
+            &config_file,
+            r#"
+[watch]
+directory="/downloads"
+
+[notifications]
+enabled=true
+provider="ntfy"
+
+[notifications.ntfy]
+server="https://ntfy.example.com"
+topic="invalid topic"
+"#,
+        )
+        .expect("write");
+
         let err = load_config(&config_file).expect_err("should fail");
-        assert!(format!("{:?}", err).contains("token"));
+        assert!(format!("{:?}", err).contains("topic"));
     }
 
     #[test]
@@ -517,23 +612,25 @@ mod debug_redaction_tests {
     use super::*;
 
     #[test]
-    fn gotify_debug_output_redacts_token() {
-        let gotify = GotifyConfig {
-            enabled: true,
-            url: "https://gotify.example.com".to_string(),
-            token: "super-secret-token".to_string(),
+    fn ntfy_debug_output_redacts_token() {
+        let ntfy = NtfyConfig {
+            server: "https://ntfy.example.com".to_string(),
+            topic: "xdcc-extractor".to_string(),
+            token: "tk_super-secret-token".to_string(),
             priority_success: 3,
-            priority_error: 8,
+            priority_error: 5,
+            notify_on_worker_start: false,
+            notify_on_processing_start: false,
             notify_on_success: true,
             notify_on_error: true,
             notify_on_every_error: false,
             notify_after_attempts: 3,
         };
 
-        let debug = format!("{:?}", gotify);
+        let debug = format!("{:?}", ntfy);
 
         assert!(debug.contains("<redacted>"));
-        assert!(!debug.contains("super-secret-token"));
+        assert!(!debug.contains("tk_super-secret-token"));
     }
 }
 

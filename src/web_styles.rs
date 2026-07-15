@@ -42,6 +42,20 @@ const COMMON_CSS: &str = r###"code {
   color: var(--muted);
   font-size: 13px;
 }
+
+.dashboard-card-divider {
+  height: 1px;
+  margin: 18px 0 14px;
+  background: var(--border);
+}
+
+.dashboard-card-label {
+  margin-top: 0;
+}
+
+.dashboard-secondary-value {
+  margin-top: 6px;
+}
 "###;
 
 pub async fn common_css() -> impl IntoResponse {
@@ -205,6 +219,7 @@ label {
 
 input[type="number"],
 input[type="text"],
+input[type="url"],
 input[type="password"],
 textarea {
   width: 100%;
@@ -222,6 +237,29 @@ textarea {
 
 .field.full {
   grid-column: 1 / -1;
+}
+
+.settings-group {
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+.settings-group + .settings-group {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-group h3 {
+  margin: 0 0 14px;
+}
+
+.settings-group .field .small {
+  margin-top: 7px;
+  line-height: 1.45;
+}
+
+.connection-test .button {
+  margin-top: 16px;
 }
 
 .check {
@@ -270,7 +308,7 @@ textarea {
   font-size: 13px;
 }
 
-.gotify-priority-grid {
+.ntfy-priority-grid {
   margin-top: 16px;
 }
 
@@ -617,6 +655,28 @@ h1 {
   gap: 14px;
 }
 
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(280px, .95fr) repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, auto);
+  gap: 14px;
+  align-items: stretch;
+  margin-bottom: 14px;
+}
+
+.dashboard-primary-card {
+  grid-row: 1 / span 2;
+}
+
+.dashboard-overview > .card {
+  min-width: 0;
+}
+
+.dashboard-content {
+  display: grid;
+  gap: 14px;
+}
+
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -781,10 +841,27 @@ footer {
   font-size: 13px;
 }
 
+@media (max-width: 860px) {
+  .dashboard-overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .dashboard-primary-card {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+}
+
 @media (max-width: 720px) {
+  .dashboard-overview {
+    grid-template-columns: 1fr;
+  }
+
   .scan-row {
     grid-template-columns: 1fr;
   }
+
   .scan-actions {
     text-align: left;
   }
