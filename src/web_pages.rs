@@ -683,8 +683,7 @@ pub fn dashboard_page_html(config: &Config) -> String {
       <div class="small">Healthcheck aktiv</div>
     </section>
 
-    <div class="dashboard-compact-grid">
-      <section class="card">
+    <section class="card">
         <h2>ntfy</h2>
         <div class="value">{ntfy_badge}</div>
       </section>
@@ -710,7 +709,6 @@ pub fn dashboard_page_html(config: &Config) -> String {
         <h2>Ausgabeordner</h2>
         <div class="small"><code>{output_dir}</code></div>
       </section>
-    </div>
   </div>
 
   <div class="dashboard-content">

@@ -317,12 +317,12 @@ echo
 echo "== Dashboard-Raster v1.1.0 =="
 check_page "/" 'class="dashboard-overview"'
 check_page "/" 'class="card dashboard-primary-card"'
-check_page "/" 'class="dashboard-compact-grid"'
 check_page "/" 'class="dashboard-content"'
+check_page_absent "/" 'class="dashboard-compact-grid"'
 check_page "/assets/dashboard.css" ".dashboard-overview {"
-check_page "/assets/dashboard.css" ".dashboard-compact-grid {"
 check_page "/assets/dashboard.css" ".dashboard-content {"
-check_page "/assets/dashboard.css" "margin-top: 14px;"
-check_page "/assets/dashboard.css" "grid-template-columns: repeat(2, minmax(0, 1fr));"
+check_page_absent "/assets/dashboard.css" ".dashboard-compact-grid {"
+check_page "/assets/dashboard.css" "grid-template-columns: minmax(280px, .95fr) repeat(2, minmax(0, 1fr));"
+check_page "/assets/dashboard.css" "grid-row: 1 / span 2;"
 
 echo "Alle WebUI-Tests erfolgreich."
